@@ -6,6 +6,7 @@ import {
   FiGrid, FiList, FiFilter, FiRefreshCw, FiShield
 } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
+import { useLocation } from "react-router-dom";
 import TopMenu from "../../components/TopMenu";
 import MainHeader from "../../components/MainHeader";
 import SubMenu from "../../components/SubMenu";
@@ -275,28 +276,55 @@ const DailyDeals = () => {
   const featuredSliderRef = useRef(null);
   const categoriesRef = useRef(null);
   const filtersRef = useRef(null);
+  const location = useLocation();
 
-  // Khởi tạo wishlist từ localStorage
-  useEffect(() => {
+  // Hàm tải wishlist từ localStorage
+  const loadWishlist = () => {
     try {
-      const storedWishlist = JSON.parse(localStorage.getItem("wishlist")) || [];
-      setWishlist(storedWishlist);
+      const storedWishlist = JSON.parse(localStorage.getItem("wishlist"));
+      if (Array.isArray(storedWishlist)) {
+        setWishlist(storedWishlist);
+        console.log("Loaded wishlist:", storedWishlist);
+      } else {
+        setWishlist([]);
+        console.log("Invalid wishlist data, initialized empty wishlist");
+      }
     } catch (error) {
       console.error("Error reading wishlist from localStorage:", error);
       setWishlist([]);
     }
+  };
+
+  // Tải wishlist khi component mount hoặc điều hướng
+  useEffect(() => {
+    loadWishlist();
+  }, [location]);
+
+  // Lắng nghe sự kiện storage để đồng bộ wishlist từ các tab/trang khác
+  useEffect(() => {
+    const handleStorageChange = (event) => {
+      if (event.key === "wishlist") {
+        console.log("Storage event detected, reloading wishlist");
+        loadWishlist();
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
   // Cập nhật localStorage khi wishlist thay đổi
   useEffect(() => {
-    try {
-      localStorage.setItem("wishlist", JSON.stringify(wishlist));
-    } catch (error) {
-      console.error("Error saving wishlist to localStorage:", error);
+    if (wishlist.length > 0 || localStorage.getItem("wishlist")) {
+      try {
+        localStorage.setItem("wishlist", JSON.stringify(wishlist));
+        console.log("Saved wishlist to localStorage:", wishlist);
+      } catch (error) {
+        console.error("Error saving wishlist to localStorage:", error);
+      }
     }
   }, [wishlist]);
 
-  // Countdown timer (giữ nguyên)
+  // Countdown timer
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeLeft(prev => {
@@ -314,19 +342,19 @@ const DailyDeals = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Format time (giữ nguyên)
+  // Format time
   const formatTime = (time) => {
     return time < 10 ? `0${time}` : time;
   };
 
-  // Format deal time (giữ nguyên)
+  // Format deal time
   const formatDealTime = (seconds) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     return `${formatTime(hours)}:${formatTime(minutes)}`;
   };
 
-  // Handle category change, sorting, price range filter, sticky header (giữ nguyên)
+  // Handle category change
   useEffect(() => {
     if (activeCategory === "all") {
       setFilteredDeals(REGULAR_DEALS);
@@ -335,6 +363,7 @@ const DailyDeals = () => {
     }
   }, [activeCategory]);
 
+  // Handle sorting
   useEffect(() => {
     let sorted = [...filteredDeals];
     switch (sortBy) {
@@ -356,6 +385,7 @@ const DailyDeals = () => {
     setFilteredDeals(sorted);
   }, [sortBy]);
 
+  // Handle price range filter
   useEffect(() => {
     const filtered = REGULAR_DEALS.filter(deal => {
       const matchesCategory = activeCategory === "all" || deal.category === activeCategory;
@@ -366,6 +396,7 @@ const DailyDeals = () => {
     setFilteredDeals(filtered);
   }, [priceRange, discountFilter, activeCategory]);
 
+  // Handle sticky header
   useEffect(() => {
     const handleScroll = () => {
       if (filtersRef.current) {
@@ -388,12 +419,12 @@ const DailyDeals = () => {
       updatedWishlist = [...wishlist, {
         id: deal.id,
         title: deal.title,
-        url: deal.image,
+        url: deal.image || "/placeholder.svg",
         price: deal.salePrice,
         originalPrice: deal.originalPrice,
         status: deal.available > deal.sold ? "available" : "out of stock",
         category: deal.category || "Unknown",
-        description: deal.title, // Có thể thêm mô tả chi tiết hơn nếu có
+        description: deal.title,
         sold: deal.sold || 0
       }];
       showNotificationWithTimeout("Added to wishlist");
@@ -411,7 +442,7 @@ const DailyDeals = () => {
     }, 3000);
   };
 
-  // Scroll featured slider, categories, calculate progress (giữ nguyên)
+  // Scroll featured slider
   const scrollFeatured = (direction) => {
     if (featuredSliderRef.current) {
       const scrollAmount = direction === 'left' ? -featuredSliderRef.current.offsetWidth : featuredSliderRef.current.offsetWidth;
@@ -425,6 +456,7 @@ const DailyDeals = () => {
     }
   };
 
+  // Scroll categories
   const scrollCategories = (direction) => {
     if (categoriesRef.current) {
       const scrollAmount = direction === 'left' ? -300 : 300;
@@ -432,6 +464,7 @@ const DailyDeals = () => {
     }
   };
 
+  // Calculate progress
   const calculateProgress = (sold, available) => {
     return (sold / available) * 100;
   };
@@ -456,7 +489,6 @@ const DailyDeals = () => {
       </AnimatePresence>
       
       <main className="max-w-[1300px] mx-auto px-4 py-4">
-        {/* Daily Deals Header */}
         <div className="bg-gradient-to-r from-[#0053A0] to-[#00438A] rounded-lg p-6 mb-6 text-white">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div>
@@ -487,7 +519,6 @@ const DailyDeals = () => {
           </div>
         </div>
         
-        {/* Featured Deals Slider */}
         <div className="mb-8 relative">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-bold text-gray-900">Featured Deals</h2>
@@ -502,7 +533,7 @@ const DailyDeals = () => {
             </div>
           </div>
           
-          <div extraction_method="direct" className="relative">
+          <div className="relative">
             <button 
               onClick={() => scrollFeatured('left')}
               className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full p-2 shadow-md hover:bg-gray-100"
@@ -546,7 +577,6 @@ const DailyDeals = () => {
                         </div>
                       </div>
                     </div>
-                    
                     <div className="p-4 flex-grow flex flex-col">
                       <h3 className="font-medium text-gray-900 mb-1 line-clamp-2 flex-grow">{deal.title}</h3>
                       <div className="flex items-baseline mb-1">
@@ -592,7 +622,6 @@ const DailyDeals = () => {
           </div>
         </div>
         
-        {/* Deal Categories */}
         <div className="mb-8 relative">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-bold text-gray-900">Shop by Category</h2>
@@ -629,7 +658,6 @@ const DailyDeals = () => {
                 <p className="text-xs text-white/80 mt-1">{REGULAR_DEALS.length} items</p>
               </motion.div>
             </div>
-            
             {DEAL_CATEGORIES.map((category) => (
               <div 
                 key={category.id}
@@ -658,7 +686,6 @@ const DailyDeals = () => {
           </div>
         </div>
         
-        {/* Featured Brands */}
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Featured Brands</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
@@ -682,7 +709,6 @@ const DailyDeals = () => {
           </div>
         </div>
         
-        {/* Filters and Sorting */}
         <div 
           ref={filtersRef}
           className={`bg-white p-4 rounded-lg shadow-sm mb-6 ${isSticky ? 'sticky top-0 z-20 shadow-md' : ''}`}
@@ -805,7 +831,6 @@ const DailyDeals = () => {
           )}
         </div>
         
-        {/* Deal Results */}
         <div className="mb-8">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-bold text-gray-900">Today's Deals</h2>
@@ -960,7 +985,6 @@ const DailyDeals = () => {
           )}
         </div>
         
-        {/* Newsletter Signup */}
         <div className="mb-8">
           <div className="bg-gradient-to-r from-[#0053A0] to-[#00438A] rounded-lg p-6 text-white">
             <div className="flex flex-col md:flex-row items-center justify-between">
