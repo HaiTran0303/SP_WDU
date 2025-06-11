@@ -21,14 +21,13 @@ import {
 } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
 
-// Giả định các component này đã được tạo trong dự án của bạn
 import TopMenu from "../components/TopMenu";
 import MainHeader from "../components/MainHeader";
 import SubMenu from "../components/SubMenu";
 import Footer from "../components/Footer";
 import Product from "../components/Product";
 
-// Dữ liệu mẫu cho banner quảng cáo
+// Dữ liệu mẫu (giữ nguyên)
 const BANNER_SLIDES = [
   {
     id: 1,
@@ -56,7 +55,6 @@ const BANNER_SLIDES = [
   },
 ];
 
-// Dữ liệu mẫu cho các thương hiệu nổi bật
 const FEATURED_BRANDS = [
   {
     id: 1,
@@ -96,7 +94,6 @@ const FEATURED_BRANDS = [
   },
 ];
 
-// Dữ liệu mẫu cho các xu hướng tìm kiếm
 const TRENDING_SEARCHES = [
   "iPhone 15",
   "PlayStation 5",
@@ -110,7 +107,6 @@ const TRENDING_SEARCHES = [
   "Outdoor Furniture",
 ];
 
-// Dữ liệu mẫu cho các bộ sưu tập
 const COLLECTIONS = [
   {
     id: 1,
@@ -135,7 +131,6 @@ const COLLECTIONS = [
   },
 ];
 
-// Mapping hình ảnh danh mục
 const CATEGORY_IMAGES = {
   Fashion:
     "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=500&h=500&fit=crop",
@@ -149,9 +144,7 @@ const CATEGORY_IMAGES = {
     "https://images.unsplash.com/photo-1511882150382-421056c89033?w=500&h=500&fit=crop",
 };
 
-// Component chính
 const MainPage = () => {
-  // State từ API
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -159,8 +152,6 @@ const MainPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [viewMode, setViewMode] = useState("grid");
-
-  // State bổ sung cho UI nâng cao
   const [currentBannerSlide, setCurrentBannerSlide] = useState(0);
   const [sortBy, setSortBy] = useState("featured");
   const [showFilters, setShowFilters] = useState(false);
@@ -175,25 +166,57 @@ const MainPage = () => {
   const bannerRef = useRef(null);
   const categoriesRef = useRef(null);
   const filtersRef = useRef(null);
-  const intervalRef = useRef(null); // Thêm ref để quản lý interval của banner
+  const intervalRef = useRef(null);
+
+  // Load wishlist từ localStorage
+  useEffect(() => {
+    try {
+      const storedWishlist = JSON.parse(localStorage.getItem("wishlist")) || [];
+      setWishlist(storedWishlist);
+      console.log("Loaded wishlist:", storedWishlist);
+    } catch (error) {
+      console.error("Error loading wishlist:", error);
+      setWishlist([]);
+    }
+  }, []);
+
+  // Save wishlist vào localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem("wishlist", JSON.stringify(wishlist));
+      console.log("Saved wishlist:", wishlist);
+    } catch (error) {
+      console.error("Error saving wishlist:", error);
+    }
+  }, [wishlist]);
 
   // Fetch dữ liệu từ API
   useEffect(() => {
     const fetchData = async () => {
       try {
         const productsResponse = await fetch("http://localhost:9999/products/");
+        if (!productsResponse.ok) {
+          throw new Error(`HTTP error! status: ${productsResponse.status}`);
+        }
         const productsData = await productsResponse.json();
+        console.log("Products from API:", productsData);
 
-        const categoriesResponse = await fetch(
-          "http://localhost:9999/categories"
-        );
+        const categoriesResponse = await fetch("http://localhost:9999/categories");
+        if (!categoriesResponse.ok) {
+          throw new Error(`HTTP error! status: ${categoriesResponse.status}`);
+        }
         const categoriesData = await categoriesResponse.json();
+        console.log("Categories from API:", categoriesData);
 
-        setProducts(productsData);
-        setCategories(categoriesData);
+        // Xử lý dữ liệu sản phẩm (kiểm tra nếu API trả về object với key 'data')
+        const productsArray = Array.isArray(productsData)
+          ? productsData
+          : productsData.data || [];
+        setProducts(productsArray);
+        setCategories(Array.isArray(categoriesData) ? categoriesData : categoriesData.data || []);
 
-        // Set some random products as featured
-        const randomProducts = [...productsData]
+        // Set featured products
+        const randomProducts = [...productsArray]
           .sort(() => 0.5 - Math.random())
           .slice(0, 4);
         setFeaturedProducts(randomProducts);
@@ -208,7 +231,6 @@ const MainPage = () => {
     fetchData();
   }, []);
 
-  // Hàm khởi tạo interval cho banner
   const startAutoSlide = () => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current); // Xóa interval cũ nếu có
@@ -218,46 +240,41 @@ const MainPage = () => {
     }, 3000);
   };
 
-  // Xử lý tự động chạy banner
+  // Auto-slide banner
   useEffect(() => {
-    startAutoSlide(); // Bắt đầu tự động chạy khi component mount
-
-    // Cleanup khi component unmount
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
+    const startAutoSlide = () => {
+      intervalRef.current = setInterval(() => {
+        setCurrentBannerSlide((prev) => (prev + 1) % BANNER_SLIDES.length);
+      }, 3000);
     };
+    startAutoSlide();
+    return () => clearInterval(intervalRef.current);
   }, []);
 
-  // Reset to first page when changing category
+  // Reset page khi đổi category
   useEffect(() => {
     setCurrentPage(1);
   }, [selectedCategory]);
 
-  // Xử lý sticky header
+  // Sticky header
   useEffect(() => {
     const handleScroll = () => {
       if (filtersRef.current) {
         setIsSticky(window.scrollY > filtersRef.current.offsetTop);
       }
     };
-
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Filter products by category
+  // Filter products
   const filteredProducts = selectedCategory
-    ? products.filter(
-      (product) => String(product.categoryId) === String(selectedCategory)
-    )
-    : products;
+    ? products.filter((product) => product.categoryId == selectedCategory) // Sử dụng == để tránh lỗi kiểu dữ liệu
+    : products.filter((product) => product.price / 100 >= priceRange[0] && product.price / 100 <= priceRange[1]);
 
-  // Xử lý sắp xếp sản phẩm
+  // Sort products
   const getSortedProducts = () => {
     const sorted = [...filteredProducts];
-
     switch (sortBy) {
       case "price-low":
         sorted.sort((a, b) => a.price - b.price);
@@ -266,115 +283,87 @@ const MainPage = () => {
         sorted.sort((a, b) => b.price - a.price);
         break;
       case "newest":
-        sorted.sort(
-          (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
-        );
+        sorted.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
         break;
       default:
         break;
     }
-
     return sorted;
   };
 
-  // Tính toán phân trang
+  // Pagination
   const sortedProducts = getSortedProducts();
   const totalPages = Math.ceil(sortedProducts.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedProducts = sortedProducts.slice(
-    startIndex,
-    startIndex + itemsPerPage
-  );
+  const paginatedProducts = sortedProducts.slice(startIndex, startIndex + itemsPerPage);
 
-  // Get category name by ID
+  // Get category name
   const getCategoryName = (categoryId) => {
-    const category = categories.find(
-      (cat) => String(cat.id) === String(categoryId)
-    );
+    const category = categories.find((cat) => cat.id == categoryId); // Sử dụng == để tránh lỗi
     return category ? category.name : "Unknown Category";
   };
 
-  // Xử lý thêm/xóa sản phẩm khỏi wishlist
+  // Toggle wishlist
   const toggleWishlist = (productId) => {
     if (wishlist.includes(productId)) {
       setWishlist(wishlist.filter((id) => id !== productId));
-      showNotificationWithTimeout("Removed from watchlist");
+      showNotificationWithTimeout("Removed from wishlist");
     } else {
       setWishlist([...wishlist, productId]);
-      showNotificationWithTimeout("Added to watchlist");
+      showNotificationWithTimeout("Added to wishlist");
     }
   };
 
-  // Hiển thị thông báo với timeout
+  // Show notification
   const showNotificationWithTimeout = (message) => {
     setNotificationMessage(message);
     setShowNotification(true);
-
-    setTimeout(() => {
-      setShowNotification(false);
-    }, 3000);
+    setTimeout(() => setShowNotification(false), 3000);
   };
 
-  // Xử lý thêm vào giỏ hàng
+  // Add to cart
   const handleAddToCart = (product) => {
     showNotificationWithTimeout(`${product.title} added to cart`);
   };
 
-  // Xử lý xem sản phẩm
+  // View product
   const handleViewProduct = (product) => {
     if (!recentlyViewed.some((item) => item.id === product.id)) {
       setRecentlyViewed((prev) => [product, ...prev].slice(0, 4));
     }
   };
 
-  // Chuyển trang
+  // Pagination controls
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
+  const goToPreviousPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
+  const goToNextPage = () => setCurrentPage((prev) => Math.min(prev + 1, totalPages));
 
-  // Chuyển đến trang trước
-  const goToPreviousPage = () => {
-    setCurrentPage((prev) => Math.max(prev - 1, 1));
-  };
-
-  // Chuyển đến trang sau
-  const goToNextPage = () => {
-    setCurrentPage((prev) => Math.min(prev + 1, totalPages));
-  };
-
-  // Xử lý nhấn nút trái/phải cho banner
+  // Scroll banner
   const scrollBanner = (direction) => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current); // Dừng interval khi nhấn nút
-    }
-
-    if (direction === "left") {
-      setCurrentBannerSlide(
-        (prev) => (prev - 1 + BANNER_SLIDES.length) % BANNER_SLIDES.length
-      );
-    } else {
-      setCurrentBannerSlide((prev) => (prev + 1) % BANNER_SLIDES.length);
-    }
-
-    startAutoSlide(); // Khởi động lại interval
+    clearInterval(intervalRef.current);
+    setCurrentBannerSlide((prev) =>
+      direction === "left"
+        ? (prev - 1 + BANNER_SLIDES.length) % BANNER_SLIDES.length
+        : (prev + 1) % BANNER_SLIDES.length
+    );
+    startAutoSlide();
   };
 
-  // Cuộn danh mục
+  // Scroll categories
   const scrollCategories = (direction) => {
     if (categoriesRef.current) {
       const scrollAmount = direction === "left" ? -300 : 300;
-      categoriesRef.current.scrollBy({
-        left: scrollAmount,
-        behavior: "smooth",
-      });
+      categoriesRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
     }
   };
 
-  // Tính giá giảm giá (giả định giảm 10-30%)
+  // Calculate sale price
   const calculateSalePrice = (price) => {
-    const discount = Math.floor(Math.random() * 20) + 10; // 10-30%
+    const discount = Math.floor(Math.random() * 20) + 10;
     return ((price * (100 - discount)) / 100).toFixed(2);
   };
 
-  // Tính phần trăm giảm giá
+  // Calculate discount percentage
   const calculateDiscount = (originalPrice, salePrice) => {
     return Math.round(((originalPrice - salePrice) / originalPrice) * 100);
   };
@@ -390,7 +379,6 @@ const MainPage = () => {
           </div>
         </div>
 
-        {/* Thông báo */}
         <AnimatePresence>
           {showNotification && (
             <motion.div
@@ -406,10 +394,7 @@ const MainPage = () => {
 
         <div className="max-w-[1300px] mx-auto px-4">
           {/* Banner Carousel */}
-          <div
-            className="relative mb-8 rounded-xl overflow-hidden shadow-lg"
-            ref={bannerRef}
-          >
+          <div className="relative mb-8 rounded-xl overflow-hidden shadow-lg" ref={bannerRef}>
             <div className="absolute top-1/2 left-4 z-10 transform -translate-y-1/2">
               <button
                 onClick={() => scrollBanner("left")}
@@ -418,7 +403,6 @@ const MainPage = () => {
                 <FiChevronLeft className="h-6 w-6" />
               </button>
             </div>
-
             <div className="absolute top-1/2 right-4 z-10 transform -translate-y-1/2">
               <button
                 onClick={() => scrollBanner("right")}
@@ -427,21 +411,18 @@ const MainPage = () => {
                 <FiChevronRight className="h-6 w-6" />
               </button>
             </div>
-
             <div className="relative h-[300px] md:h-[400px] overflow-hidden">
               {BANNER_SLIDES.map((slide, index) => (
                 <div
                   key={slide.id}
-                  className={`absolute inset-0 transition-opacity duration-1000 ${index === currentBannerSlide
-                    ? "opacity-100"
-                    : "opacity-0 pointer-events-none"
-                    }`}
+                  className={`absolute inset-0 transition-opacity duration-1000 ${
+                    index === currentBannerSlide ? "opacity-100" : "opacity-0 pointer-events-none"
+                  }`}
                 >
                   <div
                     className="absolute inset-0 bg-gradient-to-r opacity-80 z-10"
                     style={{
-                      backgroundImage: `linear-gradient(to right, ${slide.color.split(" ")[1]
-                        }, transparent)`,
+                      backgroundImage: `linear-gradient(to right, ${slide.color.split(" ")[1]}, transparent)`,
                     }}
                   ></div>
                   <img
@@ -451,12 +432,8 @@ const MainPage = () => {
                   />
                   <div className="absolute inset-0 flex items-center z-20">
                     <div className="ml-8 md:ml-16 max-w-lg">
-                      <h2 className="text-3xl md:text-4xl font-bold text-white mb-2">
-                        {slide.title}
-                      </h2>
-                      <p className="text-white/90 text-lg mb-6">
-                        {slide.subtitle}
-                      </p>
+                      <h2 className="text-3xl md:text-4xl font-bold text-white mb-2">{slide.title}</h2>
+                      <p className="text-white/90 text-lg mb-6">{slide.subtitle}</p>
                       <button className="bg-white text-gray-900 hover:bg-gray-50 px-6 py-3 rounded-full font-medium shadow-md transition-transform hover:scale-105">
                         {slide.cta}
                       </button>
@@ -465,32 +442,29 @@ const MainPage = () => {
                 </div>
               ))}
             </div>
-
             <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-2">
               {BANNER_SLIDES.map((_, index) => (
                 <button
                   key={index}
                   onClick={() => {
-                    if (intervalRef.current) {
-                      clearInterval(intervalRef.current);
-                    }
+                    clearInterval(intervalRef.current);
                     setCurrentBannerSlide(index);
                     startAutoSlide();
                   }}
-                  className={`w-2.5 h-2.5 rounded-full transition-colors ${index === currentBannerSlide ? "bg-white" : "bg-white/50"
-                    }`}
+                  className={`w-2.5 h-2.5 rounded-full transition-colors ${
+                    index === currentBannerSlide ? "bg-white" : "bg-white/50"
+                  }`}
                 />
               ))}
             </div>
           </div>
 
-          {/* Xu hướng tìm kiếm */}
+          {/* Trending Searches */}
           <div className="mb-8">
             <div className="flex items-center mb-4">
               <FiTrendingUp className="text-[#0053A0] mr-2" />
               <h2 className="text-lg font-medium">Trending Searches</h2>
             </div>
-
             <div className="flex flex-wrap gap-2">
               {TRENDING_SEARCHES.map((search, index) => (
                 <button
@@ -503,7 +477,7 @@ const MainPage = () => {
             </div>
           </div>
 
-          {/* Danh mục sản phẩm */}
+          {/* Categories */}
           <div className="container mx-auto px-4 mt-10 mb-8">
             <div className="flex justify-center items-center space-x-6">
               <button
@@ -511,8 +485,9 @@ const MainPage = () => {
                 className="flex flex-col items-center group"
               >
                 <div
-                  className={`w-40 h-40 rounded-full flex items-center justify-center bg-white mb-4 shadow-lg transition-all duration-300 overflow-hidden group-hover:shadow-xl ${!selectedCategory ? "ring-3 ring-blue-500" : ""
-                    }`}
+                  className={`w-40 h-40 rounded-full flex items-center justify-center bg-white mb-4 shadow-lg transition-all duration-300 overflow-hidden group-hover:shadow-xl ${
+                    !selectedCategory ? "ring-3 ring-blue-500" : ""
+                  }`}
                 >
                   <img
                     src="https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=500&h=500&fit=crop"
@@ -521,10 +496,9 @@ const MainPage = () => {
                   />
                 </div>
                 <span
-                  className={`text-base font-semibold ${!selectedCategory
-                    ? "text-blue-600"
-                    : "text-gray-700 group-hover:text-blue-500"
-                    }`}
+                  className={`text-base font-semibold ${
+                    !selectedCategory ? "text-blue-600" : "text-gray-700 group-hover:text-blue-500"
+                  }`}
                 >
                   All Categories
                 </span>
@@ -536,10 +510,9 @@ const MainPage = () => {
                   className="flex flex-col items-center group"
                 >
                   <div
-                    className={`w-40 h-40 rounded-full flex items-center justify-center bg-white mb-4 shadow-lg transition-all duration-300 overflow-hidden group-hover:shadow-xl ${selectedCategory === category.id
-                      ? "ring-3 ring-blue-500"
-                      : ""
-                      }`}
+                    className={`w-40 h-40 rounded-full flex items-center justify-center bg-white mb-4 shadow-lg transition-all duration-300 overflow-hidden group-hover:shadow-xl ${
+                      selectedCategory === category.id ? "ring-3 ring-blue-500" : ""
+                    }`}
                   >
                     <img
                       src={CATEGORY_IMAGES[category.name] || "/placeholder.svg"}
@@ -548,10 +521,9 @@ const MainPage = () => {
                     />
                   </div>
                   <span
-                    className={`text-base font-semibold ${selectedCategory === category.id
-                      ? "text-blue-600"
-                      : "text-gray-700 group-hover:text-blue-500"
-                      }`}
+                    className={`text-base font-semibold ${
+                      selectedCategory === category.id ? "text-blue-600" : "text-gray-700 group-hover:text-blue-500"
+                    }`}
                   >
                     {category.name}
                   </span>
@@ -560,17 +532,13 @@ const MainPage = () => {
             </div>
           </div>
 
-          {/* Sản phẩm */}
+          {/* Products */}
           <div className="mb-12">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold">
-                {selectedCategory
-                  ? `${getCategoryName(selectedCategory)} Products`
-                  : "All Products"}
+                {selectedCategory ? `${getCategoryName(selectedCategory)} Products` : "All Products"}
               </h2>
-              <div className="text-sm text-gray-500">
-                {filteredProducts.length} results
-              </div>
+              <div className="text-sm text-gray-500">{filteredProducts.length} results</div>
             </div>
 
             {loading ? (
@@ -602,12 +570,8 @@ const MainPage = () => {
                 <div className="text-gray-400 mb-4">
                   <FiSearch size={48} className="mx-auto" />
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  No products found
-                </h3>
-                <p className="text-gray-500">
-                  We couldn't find any products matching your criteria.
-                </p>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
+                <p className="text-gray-500">We couldn't find any products matching your criteria.</p>
                 <button
                   onClick={() => setSelectedCategory(null)}
                   className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
@@ -618,7 +582,14 @@ const MainPage = () => {
             ) : viewMode === "grid" ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-8">
                 {paginatedProducts.map((product) => (
-                  <Product key={product.id} product={product} />
+                  <Product
+                    key={product.id}
+                    product={product}
+                    onAddToCart={handleAddToCart}
+                    onToggleWishlist={toggleWishlist}
+                    isWishlisted={wishlist.includes(product.id)}
+                    onViewProduct={handleViewProduct}
+                  />
                 ))}
               </div>
             ) : (
@@ -631,7 +602,7 @@ const MainPage = () => {
                     <div className="flex flex-col sm:flex-row">
                       <div className="sm:w-48 h-48 flex-shrink-0">
                         <img
-                          src={`${product.url}/300`}
+                          src={product.url ? `${product.url}/300` : "/placeholder.svg"}
                           alt={product.title}
                           className="w-full h-full object-cover"
                         />
@@ -639,25 +610,16 @@ const MainPage = () => {
                       <div className="p-4 flex-grow">
                         <div className="flex justify-between">
                           <div>
-                            <h3 className="font-medium text-lg text-gray-900 mb-1">
-                              {product.title}
-                            </h3>
-                            <p className="text-sm text-gray-500 mb-2">
-                              {getCategoryName(product.categoryId)}
-                            </p>
-                            <p className="text-sm text-gray-600 line-clamp-2 mb-2">
-                              {product.description}
-                            </p>
+                            <h3 className="font-medium text-lg text-gray-900 mb-1">{product.title}</h3>
+                            <p className="text-sm text-gray-500 mb-2">{getCategoryName(product.categoryId)}</p>
+                            <p className="text-sm text-gray-600 line-clamp-2 mb-2">{product.description}</p>
                           </div>
                           <button
                             onClick={() => toggleWishlist(product.id)}
                             className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-gray-50"
                           >
                             <FiHeart
-                              className={`${wishlist.includes(product.id)
-                                ? "text-[#e43147] fill-[#e43147]"
-                                : "text-gray-400"
-                                }`}
+                              className={`${wishlist.includes(product.id) ? "text-[#e43147] fill-[#e43147]" : "text-gray-400"}`}
                             />
                           </button>
                         </div>
@@ -667,9 +629,7 @@ const MainPage = () => {
                               £{(product.price / 100).toFixed(2)}
                             </span>
                             <span className="text-xs text-gray-500 ml-2">
-                              {product.quantity > 0
-                                ? `${product.quantity} available`
-                                : "Out of stock"}
+                              {product.quantity > 0 ? `${product.quantity} available` : "Out of stock"}
                             </span>
                           </div>
                           <button
@@ -687,20 +647,18 @@ const MainPage = () => {
               </div>
             )}
 
-            {/* Phân trang */}
+            {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex justify-center items-center gap-2 py-8">
                 <button
                   onClick={goToPreviousPage}
                   disabled={currentPage === 1}
-                  className={`flex items-center px-4 py-2 rounded-full ${currentPage === 1
-                    ? "bg-gray-50 text-gray-400 cursor-not-allowed"
-                    : "bg-white hover:bg-gray-50 text-gray-700 border shadow-sm"
-                    }`}
+                  className={`flex items-center px-4 py-2 rounded-full ${
+                    currentPage === 1 ? "bg-gray-50 text-gray-400 cursor-not-allowed" : "bg-white hover:bg-gray-50 text-gray-700 border shadow-sm"
+                  }`}
                 >
                   <FiChevronLeft className="mr-1" size={12} /> Previous
                 </button>
-
                 <div className="hidden md:flex items-center">
                   {Array.from({ length: totalPages }).map((_, index) => {
                     if (
@@ -713,10 +671,9 @@ const MainPage = () => {
                         <button
                           key={index + 1}
                           onClick={() => paginate(index + 1)}
-                          className={`w-10 h-10 mx-1 rounded-full ${currentPage === index + 1
-                            ? "bg-blue-600 text-white"
-                            : "bg-white hover:bg-gray-50 text-gray-700 border shadow-sm"
-                            }`}
+                          className={`w-10 h-10 mx-1 rounded-full ${
+                            currentPage === index + 1 ? "bg-blue-600 text-white" : "bg-white hover:bg-gray-50 text-gray-700 border shadow-sm"
+                          }`}
                         >
                           {index + 1}
                         </button>
@@ -734,20 +691,17 @@ const MainPage = () => {
                     return null;
                   })}
                 </div>
-
                 <div className="md:hidden flex items-center">
                   <span className="text-gray-600 text-sm">
                     Page {currentPage} of {totalPages}
                   </span>
                 </div>
-
                 <button
                   onClick={goToNextPage}
                   disabled={currentPage === totalPages}
-                  className={`flex items-center px-4 py-2 rounded-full ${currentPage === totalPages
-                    ? "bg-gray-50 text-gray-400 cursor-not-allowed"
-                    : "bg-white hover:bg-gray-50 text-gray-700 border shadow-sm"
-                    }`}
+                  className={`flex items-center px-4 py-2 rounded-full ${
+                    currentPage === totalPages ? "bg-gray-50 text-gray-400 cursor-not-allowed" : "bg-white hover:bg-gray-50 text-gray-700 border shadow-sm"
+                  }`}
                 >
                   Next <FiChevronRight className="ml-1" size={12} />
                 </button>
@@ -755,11 +709,10 @@ const MainPage = () => {
             )}
           </div>
 
-          {/* Bộ lọc và Sắp xếp */}
+          {/* Filters and Sorting */}
           <div
             ref={filtersRef}
-            className={`bg-white p-4 rounded-lg shadow-sm mb-6 ${isSticky ? "sticky top-0 z-20 shadow-md" : ""
-              }`}
+            className={`bg-white p-4 rounded-lg shadow-sm mb-6 ${isSticky ? "sticky top-0 z-20 shadow-md" : ""}`}
           >
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
               <div className="flex items-center mb-4 md:mb-0">
@@ -770,29 +723,24 @@ const MainPage = () => {
                   <FiFilter className="mr-1 h-4 w-4" />
                   Filters
                   <FiChevronDown
-                    className={`ml-1 h-4 w-4 transition-transform ${showFilters ? "rotate-180" : ""
-                      }`}
+                    className={`ml-1 h-4 w-4 transition-transform ${showFilters ? "rotate-180" : ""}`}
                   />
                 </button>
-
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={() => setViewMode("grid")}
-                    className={`p-1.5 rounded ${viewMode === "grid" ? "bg-gray-50" : "bg-white"
-                      }`}
+                    className={`p-1.5 rounded ${viewMode === "grid" ? "bg-gray-50" : "bg-white"}`}
                   >
                     <FiGrid className="h-5 w-5 text-gray-700" />
                   </button>
                   <button
                     onClick={() => setViewMode("list")}
-                    className={`p-1.5 rounded ${viewMode === "list" ? "bg-gray-50" : "bg-white"
-                      }`}
+                    className={`p-1.5 rounded ${viewMode === "list" ? "bg-gray-50" : "bg-white"}`}
                   >
                     <FiList className="h-5 w-5 text-gray-700" />
                   </button>
                 </div>
               </div>
-
               <div className="flex items-center w-full md:w-auto">
                 <div className="text-sm text-gray-500 mr-2">Sort by:</div>
                 <select
@@ -805,7 +753,6 @@ const MainPage = () => {
                   <option value="price-high">Price: High to Low</option>
                   <option value="newest">Newest First</option>
                 </select>
-
                 <button
                   onClick={() => {
                     setSelectedCategory(null);
@@ -819,8 +766,6 @@ const MainPage = () => {
                 </button>
               </div>
             </div>
-
-            {/* Bộ lọc mở rộng */}
             {showFilters && (
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
@@ -830,9 +775,7 @@ const MainPage = () => {
               >
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
-                    <h3 className="font-medium text-gray-900 mb-2">
-                      Price Range
-                    </h3>
+                    <h3 className="font-medium text-gray-900 mb-2">Price Range</h3>
                     <div className="flex items-center space-x-4">
                       <input
                         type="range"
@@ -840,12 +783,7 @@ const MainPage = () => {
                         max="1000"
                         step="10"
                         value={priceRange[1]}
-                        onChange={(e) =>
-                          setPriceRange([
-                            priceRange[0],
-                            Number.parseInt(e.target.value),
-                          ])
-                        }
+                        onChange={(e) => setPriceRange([priceRange[0], Number.parseInt(e.target.value)])}
                         className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#0053A0]"
                       />
                     </div>
@@ -854,11 +792,8 @@ const MainPage = () => {
                       <span>${priceRange[1]}</span>
                     </div>
                   </div>
-
                   <div>
-                    <h3 className="font-medium text-gray-900 mb-2">
-                      Item Condition
-                    </h3>
+                    <h3 className="font-medium text-gray-900 mb-2">Item Condition</h3>
                     <div className="space-y-2">
                       <label className="flex items-center">
                         <input
@@ -880,17 +815,12 @@ const MainPage = () => {
                           type="checkbox"
                           className="rounded border-gray-300 text-[#0053A0] focus:ring-[#0053A0]"
                         />
-                        <span className="ml-2 text-sm text-gray-700">
-                          Refurbished
-                        </span>
+                        <span className="ml-2 text-sm text-gray-700">Refurbished</span>
                       </label>
                     </div>
                   </div>
-
                   <div>
-                    <h3 className="font-medium text-gray-900 mb-2">
-                      Shipping Options
-                    </h3>
+                    <h3 className="font-medium text-gray-900 mb-2">Shipping Options</h3>
                     <div className="space-y-2">
                       <label className="flex items-center">
                         <input
@@ -898,27 +828,21 @@ const MainPage = () => {
                           className="rounded border-gray-300 text-[#0053A0] focus:ring-[#0053A0]"
                           defaultChecked
                         />
-                        <span className="ml-2 text-sm text-gray-700">
-                          Free Shipping
-                        </span>
+                        <span className="ml-2 text-sm text-gray-700">Free Shipping</span>
                       </label>
                       <label className="flex items-center">
                         <input
                           type="checkbox"
                           className="rounded border-gray-300 text-[#0053A0] focus:ring-[#0053A0]"
                         />
-                        <span className="ml-2 text-sm text-gray-700">
-                          Same Day Shipping
-                        </span>
+                        <span className="ml-2 text-sm text-gray-700">Same Day Shipping</span>
                       </label>
                       <label className="flex items-center">
                         <input
                           type="checkbox"
                           className="rounded border-gray-300 text-[#0053A0] focus:ring-[#0053A0]"
                         />
-                        <span className="ml-2 text-sm text-gray-700">
-                          Free Returns
-                        </span>
+                        <span className="ml-2 text-sm text-gray-700">Free Returns</span>
                       </label>
                     </div>
                   </div>
@@ -927,10 +851,9 @@ const MainPage = () => {
             )}
           </div>
 
-          {/* Bộ sưu tập */}
+          {/* Featured Collections */}
           <div className="mb-12">
             <h2 className="text-2xl font-bold mb-6">Featured Collections</h2>
-
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {COLLECTIONS.map((collection) => (
                 <motion.div
@@ -938,21 +861,15 @@ const MainPage = () => {
                   whileHover={{ scale: 1.03 }}
                   className="relative rounded-lg overflow-hidden shadow-lg h-48"
                 >
-                  <div
-                    className={`absolute inset-0 bg-gradient-to-r ${collection.color} opacity-80`}
-                  ></div>
+                  <div className={`absolute inset-0 bg-gradient-to-r ${collection.color} opacity-80`}></div>
                   <img
                     src={collection.image || "/placeholder.svg"}
                     alt={collection.title}
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute inset-0 flex flex-col justify-end p-6">
-                    <h3 className="text-white text-xl font-bold mb-1">
-                      {collection.title}
-                    </h3>
-                    <p className="text-white/90 text-sm mb-3">
-                      {collection.itemCount} items
-                    </p>
+                    <h3 className="text-white text-xl font-bold mb-1">{collection.title}</h3>
+                    <p className="text-white/90 text-sm mb-3">{collection.itemCount} items</p>
                     <button className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white py-2 px-4 rounded-full text-sm font-medium self-start">
                       Explore Collection
                     </button>
@@ -962,7 +879,7 @@ const MainPage = () => {
             </div>
           </div>
 
-          {/* Thương hiệu nổi bật */}
+          {/* Featured Brands */}
           <div className="mb-12">
             <h2 className="text-2xl font-bold mb-6">Featured Brands</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
@@ -980,26 +897,20 @@ const MainPage = () => {
                     />
                   </div>
                   <h3 className="font-medium text-gray-900">{brand.name}</h3>
-                  <p className="text-xs text-[#e43147] font-medium mt-1">
-                    {brand.discount}
-                  </p>
+                  <p className="text-xs text-[#e43147] font-medium mt-1">{brand.discount}</p>
                 </motion.div>
               ))}
             </div>
           </div>
 
-          {/* Đăng ký nhận thông báo */}
+          {/* Newsletter Signup */}
           <div className="mb-12">
             <div className="bg-gradient-to-r from-[#0053A0] to-[#00438A] rounded-lg p-6 text-white">
               <div className="flex flex-col md:flex-row items-center justify-between">
                 <div className="mb-6 md:mb-0">
                   <h2 className="text-xl font-bold mb-2">Never Miss a Deal</h2>
-                  <p className="text-white/80">
-                    Sign up for our newsletter to get personalized deals
-                    delivered to your inbox.
-                  </p>
+                  <p className="text-white/80">Sign up for our newsletter to get personalized deals delivered to your inbox.</p>
                 </div>
-
                 <div className="w-full md:w-auto flex flex-col sm:flex-row">
                   <input
                     type="email"
