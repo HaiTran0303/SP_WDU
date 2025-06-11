@@ -11,9 +11,6 @@ import MainHeader from "../../components/MainHeader";
 import SubMenu from "../../components/SubMenu";
 import Footer from "../../components/Footer";
 
-// Giả định các component này đã được tạo trong dự án của bạn
-
-
 // Dữ liệu mẫu cho các deal
 const FEATURED_DEALS = [
   {
@@ -256,7 +253,6 @@ const FEATURED_BRANDS = [
   { id: 6, name: "Dyson", logo: "https://picsum.photos/id/185/100/100", discount: "Up to 20% off" }
 ];
 
-// Component chính
 const DailyDeals = () => {
   const [timeLeft, setTimeLeft] = useState({
     hours: 23,
@@ -275,12 +271,32 @@ const DailyDeals = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [showNotification, setShowNotification] = useState(false);
   const [notificationMessage, setNotificationMessage] = useState("");
-  
+
   const featuredSliderRef = useRef(null);
   const categoriesRef = useRef(null);
   const filtersRef = useRef(null);
 
-  // Countdown timer
+  // Khởi tạo wishlist từ localStorage
+  useEffect(() => {
+    try {
+      const storedWishlist = JSON.parse(localStorage.getItem("wishlist")) || [];
+      setWishlist(storedWishlist);
+    } catch (error) {
+      console.error("Error reading wishlist from localStorage:", error);
+      setWishlist([]);
+    }
+  }, []);
+
+  // Cập nhật localStorage khi wishlist thay đổi
+  useEffect(() => {
+    try {
+      localStorage.setItem("wishlist", JSON.stringify(wishlist));
+    } catch (error) {
+      console.error("Error saving wishlist to localStorage:", error);
+    }
+  }, [wishlist]);
+
+  // Countdown timer (giữ nguyên)
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeLeft(prev => {
@@ -291,28 +307,26 @@ const DailyDeals = () => {
         } else if (prev.hours > 0) {
           return { hours: prev.hours - 1, minutes: 59, seconds: 59 };
         } else {
-          // Reset to 24 hours when countdown reaches zero
           return { hours: 23, minutes: 59, seconds: 59 };
         }
       });
     }, 1000);
-
     return () => clearInterval(timer);
   }, []);
 
-  // Format time for display
+  // Format time (giữ nguyên)
   const formatTime = (time) => {
     return time < 10 ? `0${time}` : time;
   };
 
-  // Format time left for individual deals
+  // Format deal time (giữ nguyên)
   const formatDealTime = (seconds) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     return `${formatTime(hours)}:${formatTime(minutes)}`;
   };
 
-  // Handle category change
+  // Handle category change, sorting, price range filter, sticky header (giữ nguyên)
   useEffect(() => {
     if (activeCategory === "all") {
       setFilteredDeals(REGULAR_DEALS);
@@ -321,10 +335,8 @@ const DailyDeals = () => {
     }
   }, [activeCategory]);
 
-  // Handle sorting
   useEffect(() => {
     let sorted = [...filteredDeals];
-    
     switch (sortBy) {
       case "price-low":
         sorted.sort((a, b) => a.salePrice - b.salePrice);
@@ -339,66 +351,71 @@ const DailyDeals = () => {
         sorted.sort((a, b) => a.timeLeft - b.timeLeft);
         break;
       default:
-        // Keep original order for "featured"
         break;
     }
-    
     setFilteredDeals(sorted);
   }, [sortBy]);
 
-  // Handle price range filter
   useEffect(() => {
     const filtered = REGULAR_DEALS.filter(deal => {
       const matchesCategory = activeCategory === "all" || deal.category === activeCategory;
       const matchesPrice = deal.salePrice >= priceRange[0] && deal.salePrice <= priceRange[1];
       const matchesDiscount = deal.discount >= discountFilter;
-      
       return matchesCategory && matchesPrice && matchesDiscount;
     });
-    
     setFilteredDeals(filtered);
   }, [priceRange, discountFilter, activeCategory]);
 
-  // Handle sticky header
   useEffect(() => {
     const handleScroll = () => {
       if (filtersRef.current) {
         setIsSticky(window.scrollY > filtersRef.current.offsetTop);
       }
     };
-    
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Toggle wishlist
-  const toggleWishlist = (dealId) => {
-    if (wishlist.includes(dealId)) {
-      setWishlist(wishlist.filter(id => id !== dealId));
-      showNotificationWithTimeout("Removed from watchlist");
+  // Hàm toggle wishlist
+  const toggleWishlist = (deal) => {
+    const isInWishlist = wishlist.some(item => item.id === deal.id);
+    let updatedWishlist;
+
+    if (isInWishlist) {
+      updatedWishlist = wishlist.filter(item => item.id !== deal.id);
+      showNotificationWithTimeout("Removed from wishlist");
     } else {
-      setWishlist([...wishlist, dealId]);
-      showNotificationWithTimeout("Added to watchlist");
+      updatedWishlist = [...wishlist, {
+        id: deal.id,
+        title: deal.title,
+        url: deal.image,
+        price: deal.salePrice,
+        originalPrice: deal.originalPrice,
+        status: deal.available > deal.sold ? "available" : "out of stock",
+        category: deal.category || "Unknown",
+        description: deal.title, // Có thể thêm mô tả chi tiết hơn nếu có
+        sold: deal.sold || 0
+      }];
+      showNotificationWithTimeout("Added to wishlist");
     }
+
+    setWishlist(updatedWishlist);
   };
 
   // Show notification with timeout
   const showNotificationWithTimeout = (message) => {
     setNotificationMessage(message);
     setShowNotification(true);
-    
     setTimeout(() => {
       setShowNotification(false);
     }, 3000);
   };
 
-  // Scroll featured slider
+  // Scroll featured slider, categories, calculate progress (giữ nguyên)
   const scrollFeatured = (direction) => {
     if (featuredSliderRef.current) {
       const scrollAmount = direction === 'left' ? -featuredSliderRef.current.offsetWidth : featuredSliderRef.current.offsetWidth;
       featuredSliderRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-      
-      // Update current slide
       const maxSlide = Math.ceil(FEATURED_DEALS.length / 2) - 1;
       if (direction === 'left') {
         setCurrentSlide(prev => Math.max(0, prev - 1));
@@ -408,7 +425,6 @@ const DailyDeals = () => {
     }
   };
 
-  // Scroll categories
   const scrollCategories = (direction) => {
     if (categoriesRef.current) {
       const scrollAmount = direction === 'left' ? -300 : 300;
@@ -416,7 +432,6 @@ const DailyDeals = () => {
     }
   };
 
-  // Calculate progress for featured deals
   const calculateProgress = (sold, available) => {
     return (sold / available) * 100;
   };
@@ -427,7 +442,6 @@ const DailyDeals = () => {
       <MainHeader />
       <SubMenu />
       
-      {/* Notification */}
       <AnimatePresence>
         {showNotification && (
           <motion.div 
@@ -449,7 +463,6 @@ const DailyDeals = () => {
               <h1 className="text-3xl font-bold mb-2">Daily Deals</h1>
               <p className="text-white/80">Incredible savings, updated daily. Don't miss out!</p>
             </div>
-            
             <div className="mt-4 md:mt-0 flex items-center bg-white/10 backdrop-blur-sm rounded-lg p-3">
               <div className="text-center mr-4">
                 <p className="text-sm">Deals refresh in:</p>
@@ -467,7 +480,6 @@ const DailyDeals = () => {
                   </div>
                 </div>
               </div>
-              
               <button className="bg-white text-[#0053A0] hover:bg-white/90 px-4 py-2 rounded-full font-medium">
                 Shop All Deals
               </button>
@@ -490,7 +502,7 @@ const DailyDeals = () => {
             </div>
           </div>
           
-          <div className="relative">
+          <div extraction_method="direct" className="relative">
             <button 
               onClick={() => scrollFeatured('left')}
               className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full p-2 shadow-md hover:bg-gray-100"
@@ -519,10 +531,10 @@ const DailyDeals = () => {
                         {deal.discount}% OFF
                       </div>
                       <button 
-                        onClick={() => toggleWishlist(deal.id)}
+                        onClick={() => toggleWishlist(deal)}
                         className="absolute top-2 right-2 bg-white/80 p-1.5 rounded-full hover:bg-white"
                       >
-                        <FiHeart className={`h-5 w-5 ${wishlist.includes(deal.id) ? 'text-[#e43147] fill-[#e43147]' : 'text-gray-600'}`} />
+                        <FiHeart className={`h-5 w-5 ${wishlist.some(item => item.id === deal.id) ? 'text-[#e43147] fill-[#e43147]' : 'text-gray-600'}`} />
                       </button>
                       <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-1.5 flex justify-between items-center">
                         <div className="flex items-center">
@@ -537,12 +549,10 @@ const DailyDeals = () => {
                     
                     <div className="p-4 flex-grow flex flex-col">
                       <h3 className="font-medium text-gray-900 mb-1 line-clamp-2 flex-grow">{deal.title}</h3>
-                      
                       <div className="flex items-baseline mb-1">
                         <span className="text-lg font-bold text-gray-900">${deal.salePrice.toFixed(2)}</span>
                         <span className="ml-2 text-sm text-gray-500 line-through">${deal.originalPrice.toFixed(2)}</span>
                       </div>
-                      
                       <div className="flex items-center text-xs text-gray-500 mb-2">
                         <div className="flex items-center text-yellow-400 mr-1">
                           {Array.from({ length: 5 }).map((_, i) => (
@@ -557,14 +567,12 @@ const DailyDeals = () => {
                           </>
                         )}
                       </div>
-                      
                       <div className="w-full bg-gray-200 rounded-full h-1.5 mb-2">
                         <div 
                           className="bg-[#0053A0] h-1.5 rounded-full" 
                           style={{ width: `${calculateProgress(deal.sold, deal.available)}%` }}
                         />
                       </div>
-                      
                       <button className="w-full bg-[#0053A0] hover:bg-[#00438A] text-white py-2 rounded-full font-medium text-sm">
                         Add to Cart
                       </button>
@@ -689,7 +697,6 @@ const DailyDeals = () => {
                 Filters
                 <FiChevronDown className={`ml-1 h-4 w-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
               </button>
-              
               <div className="flex items-center space-x-2">
                 <button
                   onClick={() => setViewMode('grid')}
@@ -705,7 +712,6 @@ const DailyDeals = () => {
                 </button>
               </div>
             </div>
-            
             <div className="flex items-center w-full md:w-auto">
               <div className="text-sm text-gray-500 mr-2">Sort by:</div>
               <select
@@ -719,7 +725,6 @@ const DailyDeals = () => {
                 <option value="discount">Biggest Discount</option>
                 <option value="ending">Ending Soon</option>
               </select>
-              
               <button 
                 onClick={() => {
                   setActiveCategory("all");
@@ -734,8 +739,6 @@ const DailyDeals = () => {
               </button>
             </div>
           </div>
-          
-          {/* Expanded Filters */}
           {showFilters && (
             <motion.div 
               initial={{ height: 0, opacity: 0 }}
@@ -762,7 +765,6 @@ const DailyDeals = () => {
                     <span>${priceRange[1]}</span>
                   </div>
                 </div>
-                
                 <div>
                   <h3 className="font-medium text-gray-900 mb-2">Minimum Discount</h3>
                   <div className="flex items-center space-x-4">
@@ -781,7 +783,6 @@ const DailyDeals = () => {
                     <span>{discountFilter}%+</span>
                   </div>
                 </div>
-                
                 <div>
                   <h3 className="font-medium text-gray-900 mb-2">Shipping Options</h3>
                   <div className="space-y-2">
@@ -846,25 +847,22 @@ const DailyDeals = () => {
                       {deal.discount}% OFF
                     </div>
                     <button 
-                      onClick={() => toggleWishlist(deal.id)}
+                      onClick={() => toggleWishlist(deal)}
                       className="absolute top-2 right-2 bg-white/80 p-1.5 rounded-full hover:bg-white"
                     >
-                      <FiHeart className={`h-5 w-5 ${wishlist.includes(deal.id) ? 'text-[#e43147] fill-[#e43147]' : 'text-gray-600'}`} />
+                      <FiHeart className={`h-5 w-5 ${wishlist.some(item => item.id === deal.id) ? 'text-[#e43147] fill-[#e43147]' : 'text-gray-600'}`} />
                     </button>
                     <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-1.5 flex items-center">
                       <FiClock className="mr-1 h-3 w-3" />
                       {formatDealTime(deal.timeLeft)} left
                     </div>
                   </div>
-                  
                   <div className="p-4 flex-grow flex flex-col">
                     <h3 className="font-medium text-gray-900 mb-1 line-clamp-2 flex-grow">{deal.title}</h3>
-                    
                     <div className="flex items-baseline mb-1">
                       <span className="text-lg font-bold text-gray-900">${deal.salePrice.toFixed(2)}</span>
                       <span className="ml-2 text-sm text-gray-500 line-through">${deal.originalPrice.toFixed(2)}</span>
                     </div>
-                    
                     <div className="flex items-center text-xs text-gray-500 mb-2">
                       <div className="flex items-center text-yellow-400 mr-1">
                         {Array.from({ length: 5 }).map((_, i) => (
@@ -879,7 +877,6 @@ const DailyDeals = () => {
                         </>
                       )}
                     </div>
-                    
                     <button className="w-full bg-[#0053A0] hover:bg-[#00438A] text-white py-2 rounded-full font-medium text-sm">
                       Add to Cart
                     </button>
@@ -905,23 +902,21 @@ const DailyDeals = () => {
                       <div className="absolute top-0 left-0 bg-[#e43147] text-white text-xs font-bold px-2 py-1 rounded-br-lg">
                         {deal.discount}% OFF
                       </div>
+                      <button 
+                        onClick={() => toggleWishlist(deal)}
+                        className="absolute top-2 right-2 bg-white/80 p-1.5 rounded-full hover:bg-white"
+                      >
+                        <FiHeart className={`h-5 w-5 ${wishlist.some(item => item.id === deal.id) ? 'text-[#e43147] fill-[#e43147]' : 'text-gray-600'}`} />
+                      </button>
                       <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-1.5 flex items-center">
                         <FiClock className="mr-1 h-3 w-3" />
                         {formatDealTime(deal.timeLeft)} left
                       </div>
                     </div>
-                    
                     <div className="p-4 flex-grow">
                       <div className="flex justify-between">
                         <h3 className="font-medium text-gray-900 mb-1">{deal.title}</h3>
-                        <button 
-                          onClick={() => toggleWishlist(deal.id)}
-                          className="ml-2 flex-shrink-0"
-                        >
-                          <FiHeart className={`h-5 w-5 ${wishlist.includes(deal.id) ? 'text-[#e43147] fill-[#e43147]' : 'text-gray-400'}`} />
-                        </button>
                       </div>
-                      
                       <div className="flex items-center text-xs text-gray-500 mb-2">
                         <div className="flex items-center text-yellow-400 mr-1">
                           {Array.from({ length: 5 }).map((_, i) => (
@@ -932,13 +927,11 @@ const DailyDeals = () => {
                         <span className="mx-1">•</span>
                         <span>{deal.category}</span>
                       </div>
-                      
                       <div className="flex items-baseline mb-2">
                         <span className="text-xl font-bold text-gray-900">${deal.salePrice.toFixed(2)}</span>
                         <span className="ml-2 text-sm text-gray-500 line-through">${deal.originalPrice.toFixed(2)}</span>
                         <span className="ml-2 text-sm font-medium text-green-600">Save ${(deal.originalPrice - deal.salePrice).toFixed(2)}</span>
                       </div>
-                      
                       <div className="flex items-center text-sm text-gray-600 mb-3">
                         {deal.freeShipping && (
                           <div className="flex items-center mr-4">
@@ -951,7 +944,6 @@ const DailyDeals = () => {
                           <span>Money Back Guarantee</span>
                         </div>
                       </div>
-                      
                       <div className="flex items-center space-x-2">
                         <button className="bg-[#0053A0] hover:bg-[#00438A] text-white py-2 px-6 rounded-full font-medium text-sm">
                           Add to Cart
@@ -976,7 +968,6 @@ const DailyDeals = () => {
                 <h2 className="text-xl font-bold mb-2">Never Miss a Deal</h2>
                 <p className="text-white/80">Sign up for our newsletter to get personalized deals delivered to your inbox.</p>
               </div>
-              
               <div className="w-full md:w-auto flex flex-col sm:flex-row">
                 <input 
                   type="email" 
