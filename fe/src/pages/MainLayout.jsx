@@ -181,7 +181,7 @@ const MainPage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const productsResponse = await fetch("http://localhost:9999/products");
+        const productsResponse = await fetch("http://localhost:9999/products/");
         const productsData = await productsResponse.json();
 
         const categoriesResponse = await fetch(
