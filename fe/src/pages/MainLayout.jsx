@@ -143,6 +143,17 @@ const CATEGORY_IMAGES = {
     "https://images.unsplash.com/photo-1511882150382-421056c89033?w=500&h=500&fit=crop",
 };
 
+const ProductSkeleton = () => (
+  <div className="bg-white rounded-lg shadow-sm overflow-hidden flex flex-col h-full animate-pulse">
+    <div className="relative w-full h-48 bg-gray-300"></div>
+    <div className="p-4 flex-grow flex flex-col">
+      <div className="h-6 bg-gray-300 rounded mb-2"></div>
+      <div className="h-4 bg-gray-300 rounded w-3/4 mb-2"></div>
+      <div className="h-4 bg-gray-300 rounded w-1/2"></div>
+    </div>
+  </div>
+);
+
 const MainPage = () => {
   const navigate = useNavigate();
   const { updateCartCount } = useCart();
@@ -153,7 +164,6 @@ const MainPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [viewMode, setViewMode] = useState("grid");
-  const [currentBannerSlide, setCurrentBannerSlide] = useState(0);
   const [sortBy, setSortBy] = useState("featured");
   const [showFilters, setShowFilters] = useState(false);
   const [priceRange, setPriceRange] = useState([0, 1000]);
@@ -163,6 +173,7 @@ const MainPage = () => {
   const [showNotification, setShowNotification] = useState(false);
   const [notificationMessage, setNotificationMessage] = useState("");
   const [recentlyViewed, setRecentlyViewed] = useState([]);
+  const [currentBannerSlide, setCurrentBannerSlide] = useState(0); // Thêm state cho banner
   const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
   const token = localStorage.getItem("token");
 
@@ -171,29 +182,24 @@ const MainPage = () => {
   const filtersRef = useRef(null);
   const intervalRef = useRef(null);
 
-  // Load wishlist từ localStorage
   useEffect(() => {
     try {
-      const storedWishlist = JSON.parse(localStorage.getItem("wishlist")) || [];
+      const storedWishlist = JSON.parse(localStorage.getItem("wishlist") || "[]");
       setWishlist(storedWishlist);
-      console.log("Loaded wishlist:", storedWishlist);
     } catch (error) {
       console.error("Error loading wishlist:", error);
       setWishlist([]);
     }
   }, []);
 
-  // Save wishlist vào localStorage
   useEffect(() => {
     try {
       localStorage.setItem("wishlist", JSON.stringify(wishlist));
-      console.log("Saved wishlist:", wishlist);
     } catch (error) {
       console.error("Error saving wishlist:", error);
     }
   }, [wishlist]);
 
-  // Fetch dữ liệu từ API
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -202,14 +208,11 @@ const MainPage = () => {
           throw new Error(`HTTP error! status: ${productsResponse.status}`);
         }
         const productsData = await productsResponse.json();
-        console.log("Products from API:", productsData);
-
         const categoriesResponse = await fetch("http://localhost:9999/categories");
         if (!categoriesResponse.ok) {
           throw new Error(`HTTP error! status: ${categoriesResponse.status}`);
         }
         const categoriesData = await categoriesResponse.json();
-        console.log("Categories from API:", categoriesData);
 
         const productsArray = Array.isArray(productsData)
           ? productsData
@@ -230,7 +233,6 @@ const MainPage = () => {
     fetchData();
   }, []);
 
-  // Auto-slide banner
   useEffect(() => {
     const startAutoSlide = () => {
       intervalRef.current = setInterval(() => {
@@ -241,12 +243,10 @@ const MainPage = () => {
     return () => clearInterval(intervalRef.current);
   }, []);
 
-  // Reset page khi đổi category
   useEffect(() => {
     setCurrentPage(1);
   }, [selectedCategory]);
 
-  // Sticky header
   useEffect(() => {
     const handleScroll = () => {
       if (filtersRef.current) {
@@ -257,12 +257,10 @@ const MainPage = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Filter products
   const filteredProducts = selectedCategory
     ? products.filter((product) => product.categoryId == selectedCategory)
     : products.filter((product) => product.price / 100 >= priceRange[0] && product.price / 100 <= priceRange[1]);
 
-  // Sort products
   const getSortedProducts = () => {
     const sorted = [...filteredProducts];
     switch (sortBy) {
@@ -270,7 +268,7 @@ const MainPage = () => {
         sorted.sort((a, b) => a.price - b.price);
         break;
       case "price-high":
-        sorted.sort((a, b) => b.price - b.price);
+        sorted.sort((a, b) => b.price - a.price);
         break;
       case "newest":
         sorted.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
@@ -281,19 +279,16 @@ const MainPage = () => {
     return sorted;
   };
 
-  // Pagination
   const sortedProducts = getSortedProducts();
   const totalPages = Math.ceil(sortedProducts.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedProducts = sortedProducts.slice(startIndex, startIndex + itemsPerPage);
 
-  // Get category name
   const getCategoryName = (categoryId) => {
     const category = categories.find((cat) => cat.id == categoryId);
     return category ? category.name : "Unknown Category";
   };
 
-  // Toggle wishlist
   const toggleWishlist = (product) => {
     if (!product._id) {
       console.error("Product ID is undefined:", product);
@@ -326,90 +321,62 @@ const MainPage = () => {
     setWishlist(updatedWishlist);
   };
 
-  // Show notification
   const showNotificationWithTimeout = (message) => {
     setNotificationMessage(message);
     setShowNotification(true);
     setTimeout(() => setShowNotification(false), 3000);
   };
 
-  // Add to cart
-  const addToCart = async (productId) => {
-    if (!productId) {
-      console.error("Product ID is undefined");
-      showNotificationWithTimeout("Không thể thêm vào giỏ hàng: Sản phẩm không hợp lệ");
+ const addToCart = async (productId) => {
+  if (!productId) {
+    console.error("Product ID is undefined");
+    showNotificationWithTimeout("Không thể thêm vào giỏ hàng: Sản phẩm không hợp lệ");
+    return;
+  }
+
+  if (!currentUser._id || !token) {
+    showNotificationWithTimeout("Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng");
+    navigate("/auth");
+    return;
+  }
+
+  try {
+    const productResponse = await fetch(`http://localhost:9999/products/${productId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+    if (!productResponse.ok) {
+      throw new Error(`Không thể lấy thông tin sản phẩm: ${await productResponse.text()}`);
+    }
+    const product = await productResponse.json();
+    if (product.quantity <= 0) {
+      showNotificationWithTimeout("Sản phẩm này đã hết hàng!");
       return;
     }
 
-    if (!currentUser._id || !token) {
-      showNotificationWithTimeout("Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng");
-      navigate("/auth");
-      return;
+    const cartResponse = await fetch("http://localhost:9999/shoppingCart/add", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ productId, quantity: 1 }), // Gửi productId và quantity
+    });
+    if (!cartResponse.ok) {
+      throw new Error("Không thể thêm vào giỏ hàng");
     }
 
-    try {
-      const productResponse = await fetch(`http://localhost:9999/products/${productId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-      if (!productResponse.ok) {
-        const errorText = await productResponse.text();
-        throw new Error(`Không thể lấy thông tin sản phẩm: ${errorText}`);
-      }
-      const product = await productResponse.json();
-      if (product.quantity <= 0) {
-        showNotificationWithTimeout("Sản phẩm này đã hết hàng!");
-        return;
-      }
+    const result = await cartResponse.json();
+    showNotificationWithTimeout(result.message || "Đã thêm vào giỏ hàng");
+    updateCartCount(); // Cập nhật số lượng trong context
+  } catch (error) {
+    console.error("Lỗi khi thêm vào giỏ hàng:", error);
+    showNotificationWithTimeout(error.message || "Không thể thêm sản phẩm vào giỏ hàng");
+  }
+};
 
-      const cartResponse = await fetch("http://localhost:9999/shoppingCart", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!cartResponse.ok) {
-        throw new Error("Không thể lấy giỏ hàng");
-      }
-      const cart = await cartResponse.json();
-
-      let products = cart?.products || [];
-      const existingProduct = products.find((p) => p.idProduct._id === productId);
-      if (existingProduct) {
-        const newQuantity = existingProduct.quantity + 1;
-        if (newQuantity > product.quantity) {
-          showNotificationWithTimeout("Không thể thêm sản phẩm; đã đạt giới hạn tồn kho!");
-          return;
-        }
-        products = products.map((p) =>
-          p.idProduct._id === productId ? { ...p, quantity: newQuantity } : p
-        );
-      } else {
-        products.push({ idProduct: productId, quantity: 1 });
-      }
-
-      const updateResponse = await fetch("http://localhost:9999/shoppingCart", {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ products }),
-      });
-      if (!updateResponse.ok) {
-        throw new Error("Không thể cập nhật giỏ hàng");
-      }
-
-      showNotificationWithTimeout("Đã thêm vào giỏ hàng");
-      updateCartCount();
-    } catch (error) {
-      console.error("Lỗi khi thêm vào giỏ hàng:", error);
-      showNotificationWithTimeout(error.message || "Không thể thêm sản phẩm vào giỏ hàng");
-    }
-  };
-
-  // View product
   const handleViewProduct = (product) => {
     if (!product._id) {
       console.error("Product ID is undefined:", product);
@@ -420,12 +387,10 @@ const MainPage = () => {
     }
   };
 
-  // Pagination controls
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
   const goToPreviousPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
   const goToNextPage = () => setCurrentPage((prev) => Math.min(prev + 1, totalPages));
 
-  // Scroll banner
   const scrollBanner = (direction) => {
     clearInterval(intervalRef.current);
     setCurrentBannerSlide((prev) =>
@@ -441,7 +406,6 @@ const MainPage = () => {
     startAutoSlide();
   };
 
-  // Scroll categories
   const scrollCategories = (direction) => {
     if (categoriesRef.current) {
       const scrollAmount = direction === "left" ? -300 : 300;
@@ -474,7 +438,6 @@ const MainPage = () => {
         </AnimatePresence>
 
         <div className="max-w-[1300px] mx-auto px-4 py-4">
-          {/* Banner Carousel */}
           <div className="relative mb-8 rounded-xl overflow-hidden shadow-lg" ref={bannerRef}>
             <div className="absolute top-1/2 left-4 z-10">
               <button
@@ -492,7 +455,7 @@ const MainPage = () => {
                 <FiChevronRight className="h-6 w-6" />
               </button>
             </div>
-            <div className="relative h-[300px] md:h-[400px] overflow-hidden">
+            <div className="relative h-[400px] overflow-hidden">
               {BANNER_SLIDES.map((slide, index) => (
                 <div
                   key={slide.id}
@@ -546,7 +509,6 @@ const MainPage = () => {
             </div>
           </div>
 
-          {/* Trending Searches */}
           <div className="mb-8">
             <div className="flex items-center mb-4">
               <FiTrendingUp className="text-[#0053A0] mr-2" />
@@ -564,7 +526,6 @@ const MainPage = () => {
             </div>
           </div>
 
-          {/* Categories */}
           <div className="mb-8 relative">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold text-gray-900">Danh mục sản phẩm</h2>
@@ -632,7 +593,6 @@ const MainPage = () => {
             </div>
           </div>
 
-          {/* Filters and Sorting */}
           <div
             ref={filtersRef}
             className={`bg-white p-4 rounded-lg shadow-sm mb-6 ${isSticky ? "sticky top-0 z-20 shadow-md" : ""}`}
@@ -774,7 +734,6 @@ const MainPage = () => {
             )}
           </div>
 
-          {/* Products */}
           <div className="mb-12">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold">
@@ -784,28 +743,10 @@ const MainPage = () => {
             </div>
 
             {loading ? (
-              <div className="flex items-center justify-center py-20">
-                <svg
-                  className="animate-spin h-8 w-8 text-blue-500 mr-2"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-                <span className="text-gray-600">Đang tải sản phẩm...</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {Array.from({ length: itemsPerPage }).map((_, index) => (
+                  <ProductSkeleton key={index} />
+                ))}
               </div>
             ) : paginatedProducts.length === 0 ? (
               <div className="bg-white rounded-lg shadow-sm p-8 text-center">
@@ -827,12 +768,15 @@ const MainPage = () => {
                   <motion.div
                     key={product._id}
                     className="bg-white rounded-lg shadow-sm overflow-hidden flex flex-col h-full"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
                   >
-                    <div className="relative">
+                    <div className="relative w-full h-48">
                       <img
                         src={product.url ? `${product.url}/300` : "/placeholder.svg"}
                         alt={product.title}
-                        className="w-full h-48 object-cover"
+                        className="w-full h-full object-cover"
                         onError={(e) => (e.target.src = "/placeholder.svg")}
                       />
                       <button
@@ -847,7 +791,6 @@ const MainPage = () => {
                           }`}
                         />
                       </button>
-                      
                     </div>
                     <div className="p-4 flex-grow flex flex-col">
                       <h3 className="font-medium text-gray-900 mb-1 line-clamp-2 flex-grow">
@@ -871,7 +814,7 @@ const MainPage = () => {
                       </div>
                       <button
                         onClick={() => addToCart(product._id)}
-                        className="w-full bg-[#0053A0] hover:bg-[#00438A] text-white py-2 rounded-full font-medium text-sm"
+                        className="w-full bg-[#0053A0] hover:bg-[#00438A] text-white py-2 rounded-full font-medium text-sm mt-auto"
                         disabled={product.quantity === 0}
                       >
                         {product.quantity === 0 ? "Hết hàng" : "Thêm vào giỏ"}
@@ -886,9 +829,12 @@ const MainPage = () => {
                   <motion.div
                     key={product._id}
                     className="bg-white rounded-lg shadow-sm overflow-hidden"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
                   >
                     <div className="flex flex-col sm:flex-row">
-                      <div className="relative sm:w-48 h-48">
+                      <div className="relative w-full sm:w-48 h-48">
                         <img
                           src={product.url ? `${product.url}/300` : "/placeholder.svg"}
                           alt={product.title}
@@ -960,7 +906,6 @@ const MainPage = () => {
               </div>
             )}
 
-            {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex justify-center items-center gap-2 py-8">
                 <button
@@ -1028,7 +973,6 @@ const MainPage = () => {
             )}
           </div>
 
-          {/* Featured Collections */}
           <div className="mb-12">
             <h2 className="text-2xl font-bold mb-6">Bộ sưu tập nổi bật</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1056,7 +1000,6 @@ const MainPage = () => {
             </div>
           </div>
 
-          {/* Featured Brands */}
           <div className="mb-12">
             <h2 className="text-2xl font-bold mb-6">Thương hiệu nổi bật</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
@@ -1080,7 +1023,6 @@ const MainPage = () => {
             </div>
           </div>
 
-          {/* Newsletter Signup */}
           <div className="mb-12">
             <div className="bg-gradient-to-r from-[#0053A0] to-[#00438A] rounded-lg p-6 text-white">
               <div className="flex flex-col md:flex-row items-center justify-between">

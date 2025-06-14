@@ -108,3 +108,41 @@ exports.getCartItemCount = async (req, res) => {
     res.status(500).json({ message: "Không thể lấy số lượng sản phẩm trong giỏ hàng", error: error.message });
   }
 };
+
+exports.addToCart = async (req, res) => {
+  try {
+    const { productId, quantity = 1 } = req.body; // Lấy productId và quantity từ request body
+    if (!productId || quantity < 1) {
+      return res.status(400).json({ message: "Dữ liệu sản phẩm không hợp lệ" });
+    }
+
+    // Tìm giỏ hàng của người dùng
+    let cart = await Cart.findOne({ userId: req.user.id });
+    if (!cart) {
+      // Tạo giỏ hàng mới nếu chưa có
+      cart = new Cart({
+        userId: req.user.id,
+        products: [{ idProduct: productId, quantity }],
+      });
+    } else {
+      // Kiểm tra sản phẩm đã tồn tại trong giỏ hàng chưa
+      const existingProduct = cart.products.find(p => p.idProduct.toString() === productId);
+      if (existingProduct) {
+        const newQuantity = existingProduct.quantity + quantity;
+        // Kiểm tra giới hạn tồn kho (giả định cần gọi API sản phẩm để kiểm tra)
+        const product = await fetchProductDetails(productId); // Hàm này cần được triển khai để lấy thông tin sản phẩm
+        if (newQuantity > product.quantity) {
+          return res.status(400).json({ message: "Không thể thêm sản phẩm; đã đạt giới hạn tồn kho!" });
+        }
+        existingProduct.quantity = newQuantity;
+      } else {
+        cart.products.push({ idProduct: productId, quantity });
+      }
+    }
+
+    const updatedCart = await cart.save();
+    res.status(200).json({ message: "Đã thêm sản phẩm vào giỏ hàng", cart: updatedCart });
+  } catch (error) {
+    res.status(500).json({ message: "Không thể thêm sản phẩm vào giỏ hàng", error: error.message });
+  }
+};
