@@ -5,7 +5,7 @@ const {
   updateCart,
   deleteCart,
   getCartItemCount,
-} = require("../controllers/shoppingCartController.js");
+} = require("../controller/shoppingCartController.js");
 const veryfyToken = require("../middleware/verifyToken.js");
 const router = express.Router();
 
