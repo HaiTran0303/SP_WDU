@@ -25,7 +25,7 @@ function EmptyCart() {
   );
 }
 
-function CartItem({ product, onRemove, onUpdateQuantity, availableStock }) {
+function CartItem({ product, onRemove, onUpdateQuantity, availableStock, onConfirmRemove }) {
   const [isUpdating, setIsUpdating] = useState(false);
 
   return (
@@ -43,11 +43,15 @@ function CartItem({ product, onRemove, onUpdateQuantity, availableStock }) {
           <div className="flex items-center gap-2 mt-2">
             <button
               onClick={() => {
-                setIsUpdating(true);
-                onUpdateQuantity(product.idProduct, product.quantity - 1).finally(() => setIsUpdating(false));
+                if (product.quantity <= 1) {
+                  onConfirmRemove(product.idProduct);
+                } else {
+                  setIsUpdating(true);
+                  onUpdateQuantity(product.idProduct, product.quantity - 1).finally(() => setIsUpdating(false));
+                }
               }}
               className="p-1 rounded-full hover:bg-gray-100"
-              disabled={product.quantity <= 1 || isUpdating}
+              disabled={isUpdating}
             >
               <Minus size={16} />
             </button>
@@ -111,15 +115,17 @@ export default function Cart() {
   const navigate = useNavigate();
   const { updateCartCount } = useCart();
   const [cartItems, setCartItems] = useState([]);
+  const [cartId, setCartId] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [confirmRemoveProductId, setConfirmRemoveProductId] = useState(null);
   const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
   const token = localStorage.getItem("token");
 
-  // Hàm fetchCartItems được memoize để tránh tạo lại
   const fetchCartItems = useCallback(async () => {
     if (!currentUser._id || !token) {
       setCartItems([]);
+      setCartId(null);
       setIsLoading(false);
       return;
     }
@@ -128,10 +134,7 @@ export default function Cart() {
     setError(null);
     try {
       const response = await fetch(`http://localhost:9999/shoppingCart?userId=${currentUser._id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       });
       if (!response.ok) {
         if (response.status === 401) {
@@ -143,6 +146,7 @@ export default function Cart() {
         throw new Error(`Không thể tải giỏ hàng: ${response.status}`);
       }
       const cart = await response.json();
+      setCartId(cart._id);
       const items = cart.products.map((item) => ({
         idProduct: item.idProduct._id,
         title: item.idProduct.title,
@@ -156,6 +160,7 @@ export default function Cart() {
     } catch (error) {
       setError(error.message);
       setCartItems([]);
+      setCartId(null);
     } finally {
       setIsLoading(false);
       updateCartCount();
@@ -164,12 +169,10 @@ export default function Cart() {
 
   const removeFromCart = useCallback(async (productId) => {
     try {
+      if (!cartId) throw new Error("Giỏ hàng không tồn tại");
       const response = await fetch(`http://localhost:9999/shoppingCart`, {
         method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           products: cartItems.filter((item) => item.idProduct !== productId).map((item) => ({
             idProduct: item.idProduct,
@@ -183,23 +186,20 @@ export default function Cart() {
       console.error("Lỗi khi xóa sản phẩm:", error);
       alert(error.message || "Không thể xóa sản phẩm khỏi giỏ hàng");
     }
-  }, [cartItems, token, fetchCartItems]);
+  }, [cartId, cartItems, token, fetchCartItems]);
 
   const updateQuantity = useCallback(async (productId, newQuantity) => {
     if (newQuantity < 1) return;
 
     try {
-      const response = await fetch(`http://localhost:9999/shoppingCart`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          products: cartItems.map((item) =>
-            item.idProduct === productId ? { ...item, quantity: newQuantity } : item
-          ).map((item) => ({ idProduct: item.idProduct, quantity: item.quantity })),
-        }),
+      if (!cartId) throw new Error("Giỏ hàng không tồn tại");
+      const existingProduct = cartItems.find((item) => item.idProduct === productId);
+      if (!existingProduct) throw new Error("Sản phẩm không tồn tại trong giỏ hàng");
+
+      const response = await fetch(`http://localhost:9999/shoppingCart/${cartId}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ productId, quantity: newQuantity }), // Cập nhật trực tiếp tới newQuantity
       });
       if (!response.ok) throw new Error("Không thể cập nhật số lượng");
       await fetchCartItems();
@@ -207,7 +207,7 @@ export default function Cart() {
       console.error("Lỗi khi cập nhật số lượng:", error);
       alert(error.message || "Không thể cập nhật số lượng");
     }
-  }, [cartItems, token, fetchCartItems]);
+  }, [cartId, cartItems, token, fetchCartItems]);
 
   const getCartTotal = useCallback(() => {
     return cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
@@ -226,14 +226,17 @@ export default function Cart() {
     navigate("/checkout", { state: { cartItems, total: getCartTotal() } });
   }, [currentUser._id, token, cartItems.length, navigate, getCartTotal]);
 
+  const handleConfirmRemove = useCallback((productId) => {
+    if (window.confirm("Bạn có muốn xóa sản phẩm này khỏi giỏ hàng không?")) {
+      removeFromCart(productId);
+    }
+    setConfirmRemoveProductId(null);
+  }, [removeFromCart]);
+
   useEffect(() => {
     let mounted = true;
-    if (mounted) {
-      fetchCartItems();
-    }
-    return () => {
-      mounted = false; // Cleanup để tránh gọi API khi component unmount
-    };
+    if (mounted) fetchCartItems();
+    return () => { mounted = false; };
   }, [fetchCartItems]);
 
   if (!currentUser._id || !token) {
@@ -244,10 +247,7 @@ export default function Cart() {
         <SubMenu />
         <div className="text-center py-20">
           Vui lòng{" "}
-          <button
-            onClick={() => navigate("/auth")}
-            className="text-blue-500 hover:underline"
-          >
+          <button onClick={() => navigate("/auth")} className="text-blue-500 hover:underline">
             đăng nhập
           </button>{" "}
           để xem giỏ hàng của bạn
@@ -280,18 +280,35 @@ export default function Cart() {
                     onRemove={removeFromCart}
                     onUpdateQuantity={updateQuantity}
                     availableStock={product.availableStock}
+                    onConfirmRemove={() => setConfirmRemoveProductId(product.idProduct)}
                   />
                 ))}
+              </div>
+            )}
+            {confirmRemoveProductId && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white p-6 rounded-lg shadow-lg">
+                  <h3 className="text-lg font-semibold mb-4">Xác nhận</h3>
+                  <p>Bạn có muốn xóa sản phẩm này khỏi giỏ hàng không?</p>
+                  <div className="mt-4 flex justify-end gap-4">
+                    <button onClick={() => setConfirmRemoveProductId(null)}
+                      className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
+                      Hủy
+                    </button>
+                    <button onClick={() => handleConfirmRemove(confirmRemoveProductId)}
+                      className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
+                      Xóa
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>
           {cartItems.length > 0 && !isLoading && (
             <div className="md:col-span-1">
               <div className="bg-white p-4 border sticky top-4">
-                <button
-                  onClick={handleCheckout}
-                  className="flex items-center justify-center bg-blue-600 w-full text-white font-semibold p-3 rounded-full hover:bg-blue-700"
-                >
+                <button onClick={handleCheckout}
+                  className="flex items-center justify-center bg-blue-600 w-full text-white font-semibold p-3 rounded-full hover:bg-blue-700">
                   Thanh toán
                 </button>
                 <div className="flex items-center justify-between mt-4 text-sm mb-1">
