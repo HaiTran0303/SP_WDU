@@ -25,9 +25,7 @@ import TopMenu from "../components/TopMenu";
 import MainHeader from "../components/MainHeader";
 import SubMenu from "../components/SubMenu";
 import Footer from "../components/Footer";
-import Product from "../components/Product";
 
-// Dữ liệu mẫu (giữ nguyên)
 const BANNER_SLIDES = [
   {
     id: 1,
@@ -208,14 +206,12 @@ const MainPage = () => {
         const categoriesData = await categoriesResponse.json();
         console.log("Categories from API:", categoriesData);
 
-        // Xử lý dữ liệu sản phẩm (kiểm tra nếu API trả về object với key 'data')
         const productsArray = Array.isArray(productsData)
           ? productsData
           : productsData.data || [];
         setProducts(productsArray);
         setCategories(Array.isArray(categoriesData) ? categoriesData : categoriesData.data || []);
 
-        // Set featured products
         const randomProducts = [...productsArray]
           .sort(() => 0.5 - Math.random())
           .slice(0, 4);
@@ -230,15 +226,6 @@ const MainPage = () => {
 
     fetchData();
   }, []);
-
-  const startAutoSlide = () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current); // Xóa interval cũ nếu có
-    }
-    intervalRef.current = setInterval(() => {
-      setCurrentBannerSlide((prev) => (prev + 1) % BANNER_SLIDES.length);
-    }, 3000);
-  };
 
   // Auto-slide banner
   useEffect(() => {
@@ -269,7 +256,7 @@ const MainPage = () => {
 
   // Filter products
   const filteredProducts = selectedCategory
-    ? products.filter((product) => product.categoryId == selectedCategory) // Sử dụng == để tránh lỗi kiểu dữ liệu
+    ? products.filter((product) => product.categoryId == selectedCategory)
     : products.filter((product) => product.price / 100 >= priceRange[0] && product.price / 100 <= priceRange[1]);
 
   // Sort products
@@ -280,7 +267,7 @@ const MainPage = () => {
         sorted.sort((a, b) => a.price - b.price);
         break;
       case "price-high":
-        sorted.sort((a, b) => b.price - a.price);
+        sorted.sort((a, b) => b.price - b.price);
         break;
       case "newest":
         sorted.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
@@ -299,19 +286,37 @@ const MainPage = () => {
 
   // Get category name
   const getCategoryName = (categoryId) => {
-    const category = categories.find((cat) => cat.id == categoryId); // Sử dụng == để tránh lỗi
+    const category = categories.find((cat) => cat.id == categoryId);
     return category ? category.name : "Unknown Category";
   };
 
   // Toggle wishlist
-  const toggleWishlist = (productId) => {
-    if (wishlist.includes(productId)) {
-      setWishlist(wishlist.filter((id) => id !== productId));
+  const toggleWishlist = (product) => {
+    const isInWishlist = wishlist.some((item) => item.id === product.id);
+    let updatedWishlist;
+
+    if (isInWishlist) {
+      updatedWishlist = wishlist.filter((item) => item.id !== product.id);
       showNotificationWithTimeout("Removed from wishlist");
     } else {
-      setWishlist([...wishlist, productId]);
+      updatedWishlist = [
+        ...wishlist,
+        {
+          id: product.id,
+          title: product.title,
+          url: product.url || "/placeholder.svg",
+          price: product.price / 100,
+          originalPrice: product.price / 100, // Giả sử không có giá gốc
+          status: product.quantity > 0 ? "available" : "out of stock",
+          category: getCategoryName(product.categoryId),
+          description: product.description,
+          sold: product.quantity ? Math.floor(Math.random() * product.quantity) : 0,
+        },
+      ];
       showNotificationWithTimeout("Added to wishlist");
     }
+
+    setWishlist(updatedWishlist);
   };
 
   // Show notification
@@ -346,6 +351,11 @@ const MainPage = () => {
         ? (prev - 1 + BANNER_SLIDES.length) % BANNER_SLIDES.length
         : (prev + 1) % BANNER_SLIDES.length
     );
+    const startAutoSlide = () => {
+      intervalRef.current = setInterval(() => {
+        setCurrentBannerSlide((prev) => (prev + 1) % BANNER_SLIDES.length);
+      }, 3000);
+    };
     startAutoSlide();
   };
 
@@ -368,8 +378,13 @@ const MainPage = () => {
     return Math.round(((originalPrice - salePrice) / originalPrice) * 100);
   };
 
+  // Calculate progress
+  const calculateProgress = (sold, available) => {
+    return (sold / available) * 100;
+  };
+
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-gray-50">
       <div className="bg-white text-gray-900 transition-colors duration-300">
         <div className="bg-white shadow-sm">
           <div className="max-w-[1300px] mx-auto">
@@ -392,7 +407,7 @@ const MainPage = () => {
           )}
         </AnimatePresence>
 
-        <div className="max-w-[1300px] mx-auto px-4">
+        <div className="max-w-[1300px] mx-auto px-4 py-4">
           {/* Banner Carousel */}
           <div className="relative mb-8 rounded-xl overflow-hidden shadow-lg" ref={bannerRef}>
             <div className="absolute top-1/2 left-4 z-10 transform -translate-y-1/2">
@@ -429,6 +444,7 @@ const MainPage = () => {
                     src={slide.image || "/placeholder.svg"}
                     alt={slide.title}
                     className="w-full h-full object-cover"
+                    onError={(e) => (e.target.src = "/placeholder.svg")}
                   />
                   <div className="absolute inset-0 flex items-center z-20">
                     <div className="ml-8 md:ml-16 max-w-lg">
@@ -449,6 +465,11 @@ const MainPage = () => {
                   onClick={() => {
                     clearInterval(intervalRef.current);
                     setCurrentBannerSlide(index);
+                    const startAutoSlide = () => {
+                      intervalRef.current = setInterval(() => {
+                        setCurrentBannerSlide((prev) => (prev + 1) % BANNER_SLIDES.length);
+                      }, 3000);
+                    };
                     startAutoSlide();
                   }}
                   className={`w-2.5 h-2.5 rounded-full transition-colors ${
@@ -478,235 +499,73 @@ const MainPage = () => {
           </div>
 
           {/* Categories */}
-          <div className="container mx-auto px-4 mt-10 mb-8">
-            <div className="flex justify-center items-center space-x-6">
-              <button
-                onClick={() => setSelectedCategory(null)}
-                className="flex flex-col items-center group"
-              >
-                <div
-                  className={`w-40 h-40 rounded-full flex items-center justify-center bg-white mb-4 shadow-lg transition-all duration-300 overflow-hidden group-hover:shadow-xl ${
-                    !selectedCategory ? "ring-3 ring-blue-500" : ""
-                  }`}
-                >
-                  <img
-                    src="https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=500&h=500&fit=crop"
-                    alt="All Categories"
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                  />
-                </div>
-                <span
-                  className={`text-base font-semibold ${
-                    !selectedCategory ? "text-blue-600" : "text-gray-700 group-hover:text-blue-500"
-                  }`}
-                >
-                  All Categories
-                </span>
-              </button>
-              {categories.map((category) => (
+          <div className="mb-8 relative">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold text-gray-900">Shop by Category</h2>
+              <div className="flex space-x-2">
                 <button
-                  key={category.id}
-                  onClick={() => setSelectedCategory(category.id)}
-                  className="flex flex-col items-center group"
+                  onClick={() => scrollCategories("left")}
+                  className="bg-white rounded-full p-2 shadow-sm hover:bg-gray-100"
                 >
-                  <div
-                    className={`w-40 h-40 rounded-full flex items-center justify-center bg-white mb-4 shadow-lg transition-all duration-300 overflow-hidden group-hover:shadow-xl ${
-                      selectedCategory === category.id ? "ring-3 ring-blue-500" : ""
-                    }`}
-                  >
-                    <img
-                      src={CATEGORY_IMAGES[category.name] || "/placeholder.svg"}
-                      alt={category.name}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                    />
-                  </div>
-                  <span
-                    className={`text-base font-semibold ${
-                      selectedCategory === category.id ? "text-blue-600" : "text-gray-700 group-hover:text-blue-500"
-                    }`}
-                  >
-                    {category.name}
-                  </span>
+                  <FiArrowLeft className="h-5 w-5 text-gray-700" />
                 </button>
+                <button
+                  onClick={() => scrollCategories("right")}
+                  className="bg-white rounded-full p-2 shadow-sm hover:bg-gray-100"
+                >
+                  <FiArrowRight className="h-5 w-5 text-gray-700" />
+                </button>
+              </div>
+            </div>
+            <div
+              ref={categoriesRef}
+              className="flex overflow-x-auto scroll-smooth hide-scrollbar pb-2"
+            >
+              <div
+                className={`min-w-[150px] p-2 cursor-pointer ${selectedCategory === null ? "opacity-100" : "opacity-70"}`}
+                onClick={() => setSelectedCategory(null)}
+              >
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  className={`bg-gradient-to-br from-[#0053A0] to-[#00438A] rounded-lg p-4 text-center h-full ${
+                    selectedCategory === null ? "ring-2 ring-[#0053A0] ring-offset-2" : ""
+                  }`}
+                >
+                  <div className="text-3xl mb-2">🔥</div>
+                  <h3 className="font-medium text-white">All Categories</h3>
+                  <p className="text-xs text-white/80 mt-1">{products.length} items</p>
+                </motion.div>
+              </div>
+              {categories.map((category) => (
+                <div
+                  key={category.id}
+                  className={`min-w-[150px] p-2 cursor-pointer ${
+                    selectedCategory === category.id ? "opacity-100" : "opacity-70"
+                  }`}
+                  onClick={() => setSelectedCategory(category.id)}
+                >
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    className={`bg-white rounded-lg shadow-sm p-4 text-center h-full ${
+                      selectedCategory === category.id ? "ring-2 ring-[#0053A0] ring-offset-2" : ""
+                    }`}
+                  >
+                    <div className="relative mb-2 h-12 w-12 mx-auto">
+                      <img
+                        src={CATEGORY_IMAGES[category.name] || "/placeholder.svg"}
+                        alt={category.name}
+                        className="w-full h-full object-cover rounded-full"
+                        onError={(e) => (e.target.src = "/placeholder.svg")}
+                      />
+                    </div>
+                    <h3 className="font-medium text-gray-900">{category.name}</h3>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {products.filter((p) => p.categoryId == category.id).length} items
+                    </p>
+                  </motion.div>
+                </div>
               ))}
             </div>
-          </div>
-
-          {/* Products */}
-          <div className="mb-12">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold">
-                {selectedCategory ? `${getCategoryName(selectedCategory)} Products` : "All Products"}
-              </h2>
-              <div className="text-sm text-gray-500">{filteredProducts.length} results</div>
-            </div>
-
-            {loading ? (
-              <div className="flex items-center justify-center py-20">
-                <svg
-                  className="animate-spin h-8 w-8 text-blue-500 mr-2"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-                <span className="text-gray-600">Loading products...</span>
-              </div>
-            ) : paginatedProducts.length === 0 ? (
-              <div className="bg-white rounded-lg shadow-sm p-8 text-center">
-                <div className="text-gray-400 mb-4">
-                  <FiSearch size={48} className="mx-auto" />
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
-                <p className="text-gray-500">We couldn't find any products matching your criteria.</p>
-                <button
-                  onClick={() => setSelectedCategory(null)}
-                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                >
-                  View all products
-                </button>
-              </div>
-            ) : viewMode === "grid" ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-8">
-                {paginatedProducts.map((product) => (
-                  <Product
-                    key={product.id}
-                    product={product}
-                    onAddToCart={handleAddToCart}
-                    onToggleWishlist={toggleWishlist}
-                    isWishlisted={wishlist.includes(product.id)}
-                    onViewProduct={handleViewProduct}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-4 mb-8">
-                {paginatedProducts.map((product) => (
-                  <div
-                    key={product.id}
-                    className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-300"
-                  >
-                    <div className="flex flex-col sm:flex-row">
-                      <div className="sm:w-48 h-48 flex-shrink-0">
-                        <img
-                          src={product.url ? `${product.url}/300` : "/placeholder.svg"}
-                          alt={product.title}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="p-4 flex-grow">
-                        <div className="flex justify-between">
-                          <div>
-                            <h3 className="font-medium text-lg text-gray-900 mb-1">{product.title}</h3>
-                            <p className="text-sm text-gray-500 mb-2">{getCategoryName(product.categoryId)}</p>
-                            <p className="text-sm text-gray-600 line-clamp-2 mb-2">{product.description}</p>
-                          </div>
-                          <button
-                            onClick={() => toggleWishlist(product.id)}
-                            className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-gray-50"
-                          >
-                            <FiHeart
-                              className={`${wishlist.includes(product.id) ? "text-[#e43147] fill-[#e43147]" : "text-gray-400"}`}
-                            />
-                          </button>
-                        </div>
-                        <div className="mt-auto flex items-center justify-between">
-                          <div>
-                            <span className="text-xl font-bold text-gray-900">
-                              £{(product.price / 100).toFixed(2)}
-                            </span>
-                            <span className="text-xs text-gray-500 ml-2">
-                              {product.quantity > 0 ? `${product.quantity} available` : "Out of stock"}
-                            </span>
-                          </div>
-                          <button
-                            onClick={() => handleAddToCart(product)}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 flex items-center"
-                          >
-                            <FiShoppingCart className="mr-2" size={14} />
-                            Add to Cart
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex justify-center items-center gap-2 py-8">
-                <button
-                  onClick={goToPreviousPage}
-                  disabled={currentPage === 1}
-                  className={`flex items-center px-4 py-2 rounded-full ${
-                    currentPage === 1 ? "bg-gray-50 text-gray-400 cursor-not-allowed" : "bg-white hover:bg-gray-50 text-gray-700 border shadow-sm"
-                  }`}
-                >
-                  <FiChevronLeft className="mr-1" size={12} /> Previous
-                </button>
-                <div className="hidden md:flex items-center">
-                  {Array.from({ length: totalPages }).map((_, index) => {
-                    if (
-                      totalPages <= 7 ||
-                      index === 0 ||
-                      index === totalPages - 1 ||
-                      (index >= currentPage - 2 && index <= currentPage + 2)
-                    ) {
-                      return (
-                        <button
-                          key={index + 1}
-                          onClick={() => paginate(index + 1)}
-                          className={`w-10 h-10 mx-1 rounded-full ${
-                            currentPage === index + 1 ? "bg-blue-600 text-white" : "bg-white hover:bg-gray-50 text-gray-700 border shadow-sm"
-                          }`}
-                        >
-                          {index + 1}
-                        </button>
-                      );
-                    } else if (
-                      (index === 1 && currentPage > 4) ||
-                      (index === totalPages - 2 && currentPage < totalPages - 3)
-                    ) {
-                      return (
-                        <span key={index} className="mx-1 text-gray-500">
-                          ...
-                        </span>
-                      );
-                    }
-                    return null;
-                  })}
-                </div>
-                <div className="md:hidden flex items-center">
-                  <span className="text-gray-600 text-sm">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                </div>
-                <button
-                  onClick={goToNextPage}
-                  disabled={currentPage === totalPages}
-                  className={`flex items-center px-4 py-2 rounded-full ${
-                    currentPage === totalPages ? "bg-gray-50 text-gray-400 cursor-not-allowed" : "bg-white hover:bg-gray-50 text-gray-700 border shadow-sm"
-                  }`}
-                >
-                  Next <FiChevronRight className="ml-1" size={12} />
-                </button>
-              </div>
-            )}
           </div>
 
           {/* Filters and Sorting */}
@@ -729,13 +588,13 @@ const MainPage = () => {
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={() => setViewMode("grid")}
-                    className={`p-1.5 rounded ${viewMode === "grid" ? "bg-gray-50" : "bg-white"}`}
+                    className={`p-1.5 rounded ${viewMode === "grid" ? "bg-gray-200" : "bg-white"}`}
                   >
                     <FiGrid className="h-5 w-5 text-gray-700" />
                   </button>
                   <button
                     onClick={() => setViewMode("list")}
-                    className={`p-1.5 rounded ${viewMode === "list" ? "bg-gray-50" : "bg-white"}`}
+                    className={`p-1.5 rounded ${viewMode === "list" ? "bg-gray-200" : "bg-white"}`}
                   >
                     <FiList className="h-5 w-5 text-gray-700" />
                   </button>
@@ -851,6 +710,308 @@ const MainPage = () => {
             )}
           </div>
 
+          {/* Products */}
+          <div className="mb-12">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold">
+                {selectedCategory ? `${getCategoryName(selectedCategory)} Products` : "All Products"}
+              </h2>
+              <div className="text-sm text-gray-500">{filteredProducts.length} results</div>
+            </div>
+
+            {loading ? (
+              <div className="flex items-center justify-center py-20">
+                <svg
+                  className="animate-spin h-8 w-8 text-blue-500 mr-2"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+                <span className="text-gray-600">Loading products...</span>
+              </div>
+            ) : paginatedProducts.length === 0 ? (
+              <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+                <div className="text-gray-400 mb-4">
+                  <FiSearch size={48} className="mx-auto" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
+                <p className="text-gray-500">We couldn't find any products matching your criteria.</p>
+                <button
+                  onClick={() => setSelectedCategory(null)}
+                  className="mt-4 px-4 py-2 bg-[#0053A0] text-white rounded-full hover:bg-[#00438A]"
+                >
+                  View all products
+                </button>
+              </div>
+            ) : viewMode === "grid" ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
+                {paginatedProducts.map((product) => {
+                  const salePrice = calculateSalePrice(product.price / 100);
+                  const discount = calculateDiscount(product.price / 100, salePrice);
+                  const sold = product.quantity ? Math.floor(Math.random() * product.quantity) : 0;
+                  const available = product.quantity || 100;
+                  const rating = Math.random() * 2 + 3; // Giả lập rating 3-5
+                  const reviewCount = Math.floor(Math.random() * 5000); // Giả lập số lượng đánh giá
+
+                  return (
+                    <motion.div
+                      key={product.id}
+                      whileHover={{ y: -5 }}
+                      className="bg-white rounded-lg shadow-sm overflow-hidden flex flex-col h-full"
+                    >
+                      <div className="relative">
+                        <img
+                          src={product.url ? `${product.url}/300` : "/placeholder.svg"}
+                          alt={product.title}
+                          className="w-full h-48 object-cover"
+                          onError={(e) => (e.target.src = "/placeholder.svg")}
+                        />
+                        <div className="absolute top-0 left-0 bg-[#e43147] text-white text-xs font-bold px-2 py-1 rounded-br-lg">
+                          {discount}% OFF
+                        </div>
+                        <button
+                          onClick={() => toggleWishlist(product)}
+                          className="absolute top-2 right-2 bg-white/80 p-1.5 rounded-full hover:bg-white"
+                        >
+                          <FiHeart
+                            className={`h-5 w-5 ${
+                              wishlist.some((item) => item.id === product.id)
+                                ? "text-[#e43147] fill-[#e43147]"
+                                : "text-gray-600"
+                            }`}
+                          />
+                        </button>
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-1.5 flex items-center">
+                          <FiClock className="mr-1 h-3 w-3" />
+                          {Math.floor(Math.random() * 24)}:00 left
+                        </div>
+                      </div>
+                      <div className="p-4 flex-grow flex flex-col">
+                        <h3 className="font-medium text-gray-900 mb-1 line-clamp-2 flex-grow">
+                          {product.title}
+                        </h3>
+                        <div className="flex items-baseline mb-1">
+                          <span className="text-lg font-bold text-gray-900">${salePrice}</span>
+                          <span className="ml-2 text-sm text-gray-500 line-through">
+                            ${(product.price / 100).toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="flex items-center text-xs text-gray-500 mb-2">
+                          <div className="flex items-center text-yellow-400 mr-1">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              <FiStar
+                                key={i}
+                                className={`h-3 w-3 ${i < Math.floor(rating) ? "fill-yellow-400" : ""}`}
+                              />
+                            ))}
+                          </div>
+                          <span>({reviewCount.toLocaleString()})</span>
+                          <span className="mx-1">•</span>
+                          <span className="text-green-600 font-medium">Free shipping</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5 mb-2">
+                          <div
+                            className="bg-[#0053A0] h-1.5 rounded-full"
+                            style={{ width: `${calculateProgress(sold, available)}%` }}
+                          />
+                        </div>
+                        <button
+                          onClick={() => handleAddToCart(product)}
+                          className="w-full bg-[#0053A0] hover:bg-[#00438A] text-white py-2 rounded-full font-medium text-sm"
+                        >
+                          Add to Cart
+                        </button>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="space-y-4 mb-8">
+                {paginatedProducts.map((product) => {
+                  const salePrice = calculateSalePrice(product.price / 100);
+                  const discount = calculateDiscount(product.price / 100, salePrice);
+                  const sold = product.quantity ? Math.floor(Math.random() * product.quantity) : 0;
+                  const available = product.quantity || 100;
+                  const rating = Math.random() * 2 + 3;
+                  const reviewCount = Math.floor(Math.random() * 5000);
+
+                  return (
+                    <motion.div
+                      key={product.id}
+                      whileHover={{ y: -2 }}
+                      className="bg-white rounded-lg shadow-sm overflow-hidden"
+                    >
+                      <div className="flex flex-col sm:flex-row">
+                        <div className="relative sm:w-48 h-48">
+                          <img
+                            src={product.url ? `${product.url}/300` : "/placeholder.svg"}
+                            alt={product.title}
+                            className="w-full h-full object-cover"
+                            onError={(e) => (e.target.src = "/placeholder.svg")}
+                          />
+                          <div className="absolute top-0 left-0 bg-[#e43147] text-white text-xs font-bold px-2 py-1 rounded-br-lg">
+                            {discount}% OFF
+                          </div>
+                          <button
+                            onClick={() => toggleWishlist(product)}
+                            className="absolute top-2 right-2 bg-white/80 p-1.5 rounded-full hover:bg-white"
+                          >
+                            <FiHeart
+                              className={`h-5 w-5 ${
+                                wishlist.some((item) => item.id === product.id)
+                                  ? "text-[#e43147] fill-[#e43147]"
+                                  : "text-gray-600"
+                              }`}
+                            />
+                          </button>
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-1.5 flex items-center">
+                            <FiClock className="mr-1 h-3 w-3" />
+                            {Math.floor(Math.random() * 24)}:00 left
+                          </div>
+                        </div>
+                        <div className="p-4 flex-grow">
+                          <div className="flex justify-between">
+                            <h3 className="font-medium text-gray-900 mb-1">{product.title}</h3>
+                          </div>
+                          <div className="flex items-center text-xs text-gray-500 mb-2">
+                            <div className="flex items-center text-yellow-400 mr-1">
+                              {Array.from({ length: 5 }).map((_, i) => (
+                                <FiStar
+                                  key={i}
+                                  className={`h-3 w-3 ${i < Math.floor(rating) ? "fill-yellow-400" : ""}`}
+                                />
+                              ))}
+                            </div>
+                            <span>({reviewCount.toLocaleString()})</span>
+                            <span className="mx-1">•</span>
+                            <span>{getCategoryName(product.categoryId)}</span>
+                          </div>
+                          <div className="flex items-baseline mb-2">
+                            <span className="text-xl font-bold text-gray-900">${salePrice}</span>
+                            <span className="ml-2 text-sm text-gray-500 line-through">
+                              ${(product.price / 100).toFixed(2)}
+                            </span>
+                            <span className="ml-2 text-sm font-medium text-green-600">
+                              Save ${(product.price / 100 - salePrice).toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="flex items-center text-sm text-gray-600 mb-3">
+                            <div className="flex items-center mr-4">
+                              <FiShoppingCart className="mr-1 h-4 w-4 text-green-600" />
+                              <span className="text-green-600 font-medium">Free shipping</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-1.5">
+                              <div
+                                className="bg-[#0053A0] h-1.5 rounded-full"
+                                style={{ width: `${calculateProgress(sold, available)}%` }}
+                              />
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => handleAddToCart(product)}
+                              className="bg-[#0053A0] hover:bg-[#00438A] text-white py-2 px-6 rounded-full font-medium text-sm"
+                            >
+                              Add to Cart
+                            </button>
+                            <button
+                              onClick={() => handleViewProduct(product)}
+                              className="border border-gray-300 hover:border-gray-400 text-gray-700 py-2 px-6 rounded-full font-medium text-sm"
+                            >
+                              View Details
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex justify-center items-center gap-2 py-8">
+                <button
+                  onClick={goToPreviousPage}
+                  disabled={currentPage === 1}
+                  className={`flex items-center px-4 py-2 rounded-full ${
+                    currentPage === 1
+                      ? "bg-gray-50 text-gray-400 cursor-not-allowed"
+                      : "bg-white hover:bg-gray-50 text-gray-700 border shadow-sm"
+                  }`}
+                >
+                  <FiChevronLeft className="mr-1" size={12} /> Previous
+                </button>
+                <div className="hidden md:flex items-center">
+                  {Array.from({ length: totalPages }).map((_, index) => {
+                    if (
+                      totalPages <= 7 ||
+                      index === 0 ||
+                      index === totalPages - 1 ||
+                      (index >= currentPage - 2 && index <= currentPage + 2)
+                    ) {
+                      return (
+                        <button
+                          key={index + 1}
+                          onClick={() => paginate(index + 1)}
+                          className={`w-10 h-10 mx-1 rounded-full ${
+                            currentPage === index + 1
+                              ? "bg-[#0053A0] text-white"
+                              : "bg-white hover:bg-gray-50 text-gray-700 border shadow-sm"
+                          }`}
+                        >
+                          {index + 1}
+                        </button>
+                      );
+                    } else if (
+                      (index === 1 && currentPage > 4) ||
+                      (index === totalPages - 2 && currentPage < totalPages - 3)
+                    ) {
+                      return (
+                        <span key={index} className="mx-1 text-gray-500">
+                          ...
+                        </span>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+                <div className="md:hidden flex items-center">
+                  <span className="text-gray-600 text-sm">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                </div>
+                <button
+                  onClick={goToNextPage}
+                  disabled={currentPage === totalPages}
+                  className={`flex items-center px-4 py-2 rounded-full ${
+                    currentPage === totalPages
+                      ? "bg-gray-50 text-gray-400 cursor-not-allowed"
+                      : "bg-white hover:bg-gray-50 text-gray-700 border shadow-sm"
+                  }`}
+                >
+                  Next <FiChevronRight className="ml-1" size={12} />
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* Featured Collections */}
           <div className="mb-12">
             <h2 className="text-2xl font-bold mb-6">Featured Collections</h2>
@@ -866,6 +1027,7 @@ const MainPage = () => {
                     src={collection.image || "/placeholder.svg"}
                     alt={collection.title}
                     className="w-full h-full object-cover"
+                    onError={(e) => (e.target.src = "/placeholder.svg")}
                   />
                   <div className="absolute inset-0 flex flex-col justify-end p-6">
                     <h3 className="text-white text-xl font-bold mb-1">{collection.title}</h3>
@@ -894,6 +1056,7 @@ const MainPage = () => {
                       src={brand.logo || "/placeholder.svg"}
                       alt={brand.name}
                       className="max-h-full max-w-full object-contain"
+                      onError={(e) => (e.target.src = "/placeholder.svg")}
                     />
                   </div>
                   <h3 className="font-medium text-gray-900">{brand.name}</h3>
