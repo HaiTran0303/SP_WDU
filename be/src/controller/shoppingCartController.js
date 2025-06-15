@@ -58,13 +58,13 @@ exports.updateCart = async (req, res) => {
 
     const productIndex = cart.products.findIndex(p => p.idProduct.toString() === productId);
     if (productIndex === -1) {
-      cart.products.push({ idProduct: productId, quantity });
+      return res.status(404).json({ message: "Sản phẩm không tồn tại trong giỏ hàng" });
+    }
+
+    if (quantity < 1) {
+      cart.products.splice(productIndex, 1); // Xóa sản phẩm khi quantity < 1
     } else {
-      if (quantity < 1) {
-        cart.products.splice(productIndex, 1);
-      } else {
-        cart.products[productIndex].quantity = quantity; // Gán trực tiếp giá trị mới
-      }
+      cart.products[productIndex].quantity = quantity; // Cập nhật số lượng nếu quantity >= 1
     }
 
     const updatedCart = await cart.save();

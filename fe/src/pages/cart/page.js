@@ -74,10 +74,7 @@ function CartItem({ product, onRemove, onUpdateQuantity, availableStock, onConfi
         </div>
       </div>
       <button
-        onClick={() => {
-          setIsUpdating(true);
-          onRemove(product.idProduct).finally(() => setIsUpdating(false));
-        }}
+        onClick={() => onConfirmRemove(product.idProduct)}
         className="text-blue-500 hover:text-blue-700"
         disabled={isUpdating}
       >
@@ -126,100 +123,100 @@ export default function Cart() {
   const token = localStorage.getItem("token");
 
   const fetchCartItems = useCallback(async () => {
-  if (!currentUser._id || !token) {
-    setCartItems([]);
-    setCartId(null);
-    setIsLoading(false);
-    return;
-  }
-
-  setIsLoading(true);
-  setError(null);
-  try {
-    const response = await fetch(`http://localhost:9999/shoppingCart?userId=${currentUser._id}`, {
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    });
-    if (!response.ok) {
-      if (response.status === 401) {
-        localStorage.removeItem("currentUser");
-        localStorage.removeItem("token");
-        navigate("/auth");
-        throw new Error("Phiên đăng nhập hết hạn");
-      }
-      throw new Error(`Không thể tải giỏ hàng: ${response.status}`);
+    if (!currentUser._id || !token) {
+      setCartItems([]);
+      setCartId(null);
+      setIsLoading(false);
+      return;
     }
-    const cart = await response.json();
-    console.log("Fetched Cart Data:", cart); // Log để debug
-    setCartId(cart._id);
-    const items = cart.products.map((item) => ({
-      idProduct: item.idProduct._id,
-      title: item.idProduct.title,
-      description: item.idProduct.description,
-      price: item.idProduct.price,
-      url: item.idProduct.url,
-      quantity: item.quantity,
-      availableStock: item.idProduct.quantity,
-    }));
-    setCartItems(items);
-  } catch (error) {
-    console.error("Error fetching cart items:", error);
-    setError(error.message);
-    setCartItems([]);
-    setCartId(null);
-  } finally {
-    setIsLoading(false);
-    updateCartCount();
-  }
-}, [currentUser._id, token, navigate, updateCartCount]);
+
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`http://localhost:9999/shoppingCart?userId=${currentUser._id}`, {
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      });
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem("currentUser");
+          localStorage.removeItem("token");
+          navigate("/auth");
+          throw new Error("Phiên đăng nhập hết hạn");
+        }
+        throw new Error(`Không thể tải giỏ hàng: ${response.status}`);
+      }
+      const cart = await response.json();
+      setCartId(cart._id);
+      const items = cart.products.map((item) => ({
+        idProduct: item.idProduct._id,
+        title: item.idProduct.title,
+        description: item.idProduct.description,
+        price: item.idProduct.price,
+        url: item.idProduct.url,
+        quantity: item.quantity,
+        availableStock: item.idProduct.quantity,
+      }));
+      setCartItems(items);
+    } catch (error) {
+      setError(error.message);
+      setCartItems([]);
+      setCartId(null);
+    } finally {
+      setIsLoading(false);
+      updateCartCount();
+    }
+  }, [currentUser._id, token, navigate, updateCartCount]);
 
   const removeFromCart = useCallback(async (productId) => {
     try {
       if (!cartId) throw new Error("Giỏ hàng không tồn tại");
-      const response = await fetch(`http://localhost:9999/shoppingCart`, {
-        method: "PUT",
+      console.log("Removing product - Product ID:", productId);
+      const response = await fetch(`http://localhost:9999/shoppingCart/${cartId}`, {
+        method: "PATCH",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          products: cartItems.filter((item) => item.idProduct !== productId).map((item) => ({
-            idProduct: item.idProduct,
-            quantity: item.quantity,
-          })),
-        }),
+        body: JSON.stringify({ productId, quantity: 0 }), // Gửi quantity: 0 để xóa
       });
-      if (!response.ok) throw new Error("Không thể xóa sản phẩm");
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.log("API Error Response:", errorText);
+        throw new Error(`Không thể xóa sản phẩm: ${errorText}`);
+      }
+      const updatedCart = await response.json();
+      console.log("API Response after remove:", updatedCart);
       await fetchCartItems();
     } catch (error) {
       console.error("Lỗi khi xóa sản phẩm:", error);
       alert(error.message || "Không thể xóa sản phẩm khỏi giỏ hàng");
     }
-  }, [cartId, cartItems, token, fetchCartItems]);
+  }, [cartId, token, fetchCartItems]);
 
   const updateQuantity = useCallback(async (productId, newQuantity) => {
-  if (newQuantity < 1) return;
+    if (newQuantity < 1) return;
 
-  try {
-    if (!cartId) throw new Error("Giỏ hàng không tồn tại");
-    const existingProduct = cartItems.find((item) => item.idProduct === productId);
-    if (!existingProduct) throw new Error("Sản phẩm không tồn tại trong giỏ hàng");
+    try {
+      if (!cartId) throw new Error("Giỏ hàng không tồn tại");
+      const existingProduct = cartItems.find((item) => item.idProduct === productId);
+      if (!existingProduct) throw new Error("Sản phẩm không tồn tại trong giỏ hàng");
 
-    console.log("Sending to API - Product ID:", productId, "New Quantity:", newQuantity);
-    const response = await fetch(`http://localhost:9999/shoppingCart/${cartId}`, {
-      method: "PATCH",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ productId, quantity: newQuantity }),
-    });
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.log("API Error Response:", errorText);
-      throw new Error(`Không thể cập nhật số lượng: ${errorText}`);
+      console.log("Sending to API - Product ID:", productId, "New Quantity:", newQuantity);
+      const response = await fetch(`http://localhost:9999/shoppingCart/${cartId}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ productId, quantity: newQuantity }),
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.log("API Error Response:", errorText);
+        throw new Error(`Không thể cập nhật số lượng: ${errorText}`);
+      }
+      const updatedCart = await response.json();
+      console.log("API Response:", updatedCart);
+      await fetchCartItems();
+    } catch (error) {
+      console.error("Lỗi khi cập nhật số lượng:", error);
+      alert(error.message || "Không thể cập nhật số lượng");
     }
-    const updatedCart = await response.json();
-    console.log("API Response:", updatedCart);
-    await fetchCartItems();
-  } catch (error) {
-    console.error("Lỗi khi cập nhật số lượng:", error);
-    alert(error.message || "Không thể cập nhật số lượng");
-  }
-}, [cartId, cartItems, token, fetchCartItems]);
+  }, [cartId, cartItems, token, fetchCartItems]);
 
   const getCartTotal = useCallback(() => {
     return cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
@@ -239,11 +236,19 @@ export default function Cart() {
   }, [currentUser._id, token, cartItems.length, navigate, getCartTotal]);
 
   const handleConfirmRemove = useCallback((productId) => {
-    if (window.confirm("Bạn có muốn xóa sản phẩm này khỏi giỏ hàng không?")) {
-      removeFromCart(productId);
+    setConfirmRemoveProductId(productId);
+  }, []);
+
+  const handleConfirmDelete = useCallback(() => {
+    if (confirmRemoveProductId) {
+      removeFromCart(confirmRemoveProductId);
+      setConfirmRemoveProductId(null);
     }
+  }, [confirmRemoveProductId, removeFromCart]);
+
+  const handleCancelDelete = useCallback(() => {
     setConfirmRemoveProductId(null);
-  }, [removeFromCart]);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -292,7 +297,7 @@ export default function Cart() {
                     onRemove={removeFromCart}
                     onUpdateQuantity={updateQuantity}
                     availableStock={product.availableStock}
-                    onConfirmRemove={() => setConfirmRemoveProductId(product.idProduct)}
+                    onConfirmRemove={handleConfirmRemove}
                   />
                 ))}
               </div>
@@ -303,12 +308,16 @@ export default function Cart() {
                   <h3 className="text-lg font-semibold mb-4">Xác nhận</h3>
                   <p>Bạn có muốn xóa sản phẩm này khỏi giỏ hàng không?</p>
                   <div className="mt-4 flex justify-end gap-4">
-                    <button onClick={() => setConfirmRemoveProductId(null)}
-                      className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
+                    <button
+                      onClick={handleCancelDelete}
+                      className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+                    >
                       Hủy
                     </button>
-                    <button onClick={() => handleConfirmRemove(confirmRemoveProductId)}
-                      className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
+                    <button
+                      onClick={handleConfirmDelete}
+                      className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                    >
                       Xóa
                     </button>
                   </div>
@@ -319,8 +328,10 @@ export default function Cart() {
           {cartItems.length > 0 && !isLoading && (
             <div className="md:col-span-1">
               <div className="bg-white p-4 border sticky top-4">
-                <button onClick={handleCheckout}
-                  className="flex items-center justify-center bg-blue-600 w-full text-white font-semibold p-3 rounded-full hover:bg-blue-700">
+                <button
+                  onClick={handleCheckout}
+                  className="flex items-center justify-center bg-blue-600 w-full text-white font-semibold p-3 rounded-full hover:bg-blue-700"
+                >
                   Thanh toán
                 </button>
                 <div className="flex items-center justify-between mt-4 text-sm mb-1">
