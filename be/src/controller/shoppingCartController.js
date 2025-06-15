@@ -50,6 +50,7 @@ exports.createCart = async (req, res) => {
 exports.updateCart = async (req, res) => {
   try {
     const { productId, quantity } = req.body;
+    console.log("Received request - Product ID:", productId, "Quantity:", quantity); // Log để debug
     const cart = await Cart.findOne({ _id: req.params.id, userId: req.user.id });
     if (!cart) {
       return res.status(404).json({ message: "Giỏ hàng không tồn tại hoặc không thuộc về bạn" });
@@ -57,22 +58,20 @@ exports.updateCart = async (req, res) => {
 
     const productIndex = cart.products.findIndex(p => p.idProduct.toString() === productId);
     if (productIndex === -1) {
-      // Nếu sản phẩm chưa tồn tại, thêm mới
       cart.products.push({ idProduct: productId, quantity });
     } else {
-      // Nếu sản phẩm đã tồn tại, tăng số lượng
-      const currentQuantity = cart.products[productIndex].quantity;
-      const newQuantity = currentQuantity + quantity; // Tăng số lượng dựa trên quantity gửi lên (thường là 1)
-      if (newQuantity < 1) {
-        cart.products.splice(productIndex, 1); // Xóa nếu tổng số lượng < 1
+      if (quantity < 1) {
+        cart.products.splice(productIndex, 1);
       } else {
-        cart.products[productIndex].quantity = newQuantity;
+        cart.products[productIndex].quantity = quantity; // Gán trực tiếp giá trị mới
       }
     }
 
     const updatedCart = await cart.save();
+    console.log("Updated Cart:", updatedCart); // Log để debug
     res.status(200).json(updatedCart);
   } catch (error) {
+    console.error("Error in updateCart:", error);
     res.status(500).json({ message: "Không thể cập nhật giỏ hàng", error: error.message });
   }
 };

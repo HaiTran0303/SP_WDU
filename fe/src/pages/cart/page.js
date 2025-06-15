@@ -28,6 +28,19 @@ function EmptyCart() {
 function CartItem({ product, onRemove, onUpdateQuantity, availableStock, onConfirmRemove }) {
   const [isUpdating, setIsUpdating] = useState(false);
 
+  const handleUpdateQuantity = useCallback((change) => {
+    if (isUpdating) return;
+    const newQuantity = product.quantity + change;
+    if (newQuantity < 1) {
+      onConfirmRemove(product.idProduct);
+      return;
+    }
+    if (newQuantity > availableStock) return;
+    setIsUpdating(true);
+    console.log("Updating quantity - Product ID:", product.idProduct, "New Quantity:", newQuantity);
+    onUpdateQuantity(product.idProduct, newQuantity).finally(() => setIsUpdating(false));
+  }, [isUpdating, product.idProduct, product.quantity, availableStock, onUpdateQuantity, onConfirmRemove]);
+
   return (
     <div className="flex items-center justify-between gap-4 border-b p-4">
       <div className="flex items-center gap-4">
@@ -42,27 +55,17 @@ function CartItem({ product, onRemove, onUpdateQuantity, availableStock, onConfi
           <div className="font-bold mt-2">{product.price.toFixed(2)} VND</div>
           <div className="flex items-center gap-2 mt-2">
             <button
-              onClick={() => {
-                if (product.quantity <= 1) {
-                  onConfirmRemove(product.idProduct);
-                } else {
-                  setIsUpdating(true);
-                  onUpdateQuantity(product.idProduct, product.quantity - 1).finally(() => setIsUpdating(false));
-                }
-              }}
+              onClick={() => handleUpdateQuantity(-1)}
               className="p-1 rounded-full hover:bg-gray-100"
-              disabled={isUpdating}
+              disabled={isUpdating || product.quantity <= 1}
             >
               <Minus size={16} />
             </button>
             <span>{product.quantity}</span>
             <button
-              onClick={() => {
-                setIsUpdating(true);
-                onUpdateQuantity(product.idProduct, product.quantity + 1).finally(() => setIsUpdating(false));
-              }}
+              onClick={() => handleUpdateQuantity(1)}
               className="p-1 rounded-full hover:bg-gray-100"
-              disabled={product.quantity >= availableStock || isUpdating}
+              disabled={isUpdating || product.quantity >= availableStock}
             >
               <Plus size={16} />
             </button>
@@ -123,49 +126,51 @@ export default function Cart() {
   const token = localStorage.getItem("token");
 
   const fetchCartItems = useCallback(async () => {
-    if (!currentUser._id || !token) {
-      setCartItems([]);
-      setCartId(null);
-      setIsLoading(false);
-      return;
-    }
+  if (!currentUser._id || !token) {
+    setCartItems([]);
+    setCartId(null);
+    setIsLoading(false);
+    return;
+  }
 
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await fetch(`http://localhost:9999/shoppingCart?userId=${currentUser._id}`, {
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      });
-      if (!response.ok) {
-        if (response.status === 401) {
-          localStorage.removeItem("currentUser");
-          localStorage.removeItem("token");
-          navigate("/auth");
-          throw new Error("Phiên đăng nhập hết hạn");
-        }
-        throw new Error(`Không thể tải giỏ hàng: ${response.status}`);
+  setIsLoading(true);
+  setError(null);
+  try {
+    const response = await fetch(`http://localhost:9999/shoppingCart?userId=${currentUser._id}`, {
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    });
+    if (!response.ok) {
+      if (response.status === 401) {
+        localStorage.removeItem("currentUser");
+        localStorage.removeItem("token");
+        navigate("/auth");
+        throw new Error("Phiên đăng nhập hết hạn");
       }
-      const cart = await response.json();
-      setCartId(cart._id);
-      const items = cart.products.map((item) => ({
-        idProduct: item.idProduct._id,
-        title: item.idProduct.title,
-        description: item.idProduct.description,
-        price: item.idProduct.price,
-        url: item.idProduct.url,
-        quantity: item.quantity,
-        availableStock: item.idProduct.quantity,
-      }));
-      setCartItems(items);
-    } catch (error) {
-      setError(error.message);
-      setCartItems([]);
-      setCartId(null);
-    } finally {
-      setIsLoading(false);
-      updateCartCount();
+      throw new Error(`Không thể tải giỏ hàng: ${response.status}`);
     }
-  }, [currentUser._id, token, navigate, updateCartCount]);
+    const cart = await response.json();
+    console.log("Fetched Cart Data:", cart); // Log để debug
+    setCartId(cart._id);
+    const items = cart.products.map((item) => ({
+      idProduct: item.idProduct._id,
+      title: item.idProduct.title,
+      description: item.idProduct.description,
+      price: item.idProduct.price,
+      url: item.idProduct.url,
+      quantity: item.quantity,
+      availableStock: item.idProduct.quantity,
+    }));
+    setCartItems(items);
+  } catch (error) {
+    console.error("Error fetching cart items:", error);
+    setError(error.message);
+    setCartItems([]);
+    setCartId(null);
+  } finally {
+    setIsLoading(false);
+    updateCartCount();
+  }
+}, [currentUser._id, token, navigate, updateCartCount]);
 
   const removeFromCart = useCallback(async (productId) => {
     try {
@@ -189,25 +194,32 @@ export default function Cart() {
   }, [cartId, cartItems, token, fetchCartItems]);
 
   const updateQuantity = useCallback(async (productId, newQuantity) => {
-    if (newQuantity < 1) return;
+  if (newQuantity < 1) return;
 
-    try {
-      if (!cartId) throw new Error("Giỏ hàng không tồn tại");
-      const existingProduct = cartItems.find((item) => item.idProduct === productId);
-      if (!existingProduct) throw new Error("Sản phẩm không tồn tại trong giỏ hàng");
+  try {
+    if (!cartId) throw new Error("Giỏ hàng không tồn tại");
+    const existingProduct = cartItems.find((item) => item.idProduct === productId);
+    if (!existingProduct) throw new Error("Sản phẩm không tồn tại trong giỏ hàng");
 
-      const response = await fetch(`http://localhost:9999/shoppingCart/${cartId}`, {
-        method: "PATCH",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ productId, quantity: newQuantity }), // Cập nhật trực tiếp tới newQuantity
-      });
-      if (!response.ok) throw new Error("Không thể cập nhật số lượng");
-      await fetchCartItems();
-    } catch (error) {
-      console.error("Lỗi khi cập nhật số lượng:", error);
-      alert(error.message || "Không thể cập nhật số lượng");
+    console.log("Sending to API - Product ID:", productId, "New Quantity:", newQuantity);
+    const response = await fetch(`http://localhost:9999/shoppingCart/${cartId}`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ productId, quantity: newQuantity }),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.log("API Error Response:", errorText);
+      throw new Error(`Không thể cập nhật số lượng: ${errorText}`);
     }
-  }, [cartId, cartItems, token, fetchCartItems]);
+    const updatedCart = await response.json();
+    console.log("API Response:", updatedCart);
+    await fetchCartItems();
+  } catch (error) {
+    console.error("Lỗi khi cập nhật số lượng:", error);
+    alert(error.message || "Không thể cập nhật số lượng");
+  }
+}, [cartId, cartItems, token, fetchCartItems]);
 
   const getCartTotal = useCallback(() => {
     return cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
