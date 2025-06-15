@@ -23,37 +23,38 @@ import DailyDeals from "./pages/dailyDeal/page";
 import HelpContact from "./pages/help/page";
 
 import { CartProvider } from "./context/cartContext"; // ✅ Make sure this is the correct path
+import { WishlistProvider } from "./context/WishlistContext";
 import Profile from "./pages/profile/profile";
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
   <React.StrictMode>
     <BrowserRouter>
-      <CartProvider>
-        {" "}
-        {/* ✅ Wrap all routes with CartProvider */}
-        <Routes>
-          <Route path="/" element={<App />} />
-          <Route path="/product/:id" element={<ProductDetail />} />
-          <Route path="/cart/" element={<Cart />} />
-          <Route path="/checkout" element={<Checkout />} />
-          <Route path="/success" element={<Success />} />
-          <Route path="/orders" element={<Orders />} />
-          <Route path="/auth" element={<AuthPage />} />
-          <Route path="/list-category/:categoryId" element={<ListCategory />} />
-          <Route path="/wishlist" element={<Wishlist />} />
-          <Route path="/sell" element={<Sell />} />
-          <Route path="/sellerProduct" element={<SellerProducts />} />
-          <Route path="/order-history" element={<OrderHistory />} />
-          <Route path="/search" element={<SearchResults />} />
-          <Route path="/totalSell" element={<TotalSell />} />
-          <Route path="/adminDashboard" element={<AdminDashboard />} />
-          <Route path="/auction-product" element={<AuctionProductDetail />} />
-          <Route path="/daily-deals" element={<DailyDeals />} />
-          <Route path="/help" element={<HelpContact />} />
-          <Route path="/profile" element={<Profile />} />
-        </Routes>
-      </CartProvider>
+      <WishlistProvider> {/* Di chuyển WishlistProvider ra đây */}
+        <CartProvider> {/* Giữ CartProvider bao bọc Routes */}
+          <Routes>
+            <Route path="/" element={<App />} />
+            <Route path="/product/:id" element={<ProductDetail />} />
+            <Route path="/cart/" element={<Cart />} />
+            <Route path="/checkout" element={<Checkout />} />
+            <Route path="/success" element={<Success />} />
+            <Route path="/orders" element={<Orders />} />
+            <Route path="/auth" element={<AuthPage />} />
+            <Route path="/list-category/:categoryId" element={<ListCategory />} />
+            <Route path="/wishlist" element={<Wishlist />} />
+            <Route path="/sell" element={<Sell />} />
+            <Route path="/sellerProduct" element={<SellerProducts />} />
+            <Route path="/order-history" element={<OrderHistory />} />
+            <Route path="/search" element={<SearchResults />} />
+            <Route path="/totalSell" element={<TotalSell />} />
+            <Route path="/adminDashboard" element={<AdminDashboard />} />
+            <Route path="/auction-product" element={<AuctionProductDetail />} />
+            <Route path="/daily-deals" element={<DailyDeals />} />
+            <Route path="/help" element={<HelpContact />} />
+            <Route path="/profile" element={<Profile />} />
+          </Routes>
+        </CartProvider>
+      </WishlistProvider>
     </BrowserRouter>
   </React.StrictMode>
 );
