@@ -34,7 +34,7 @@ const BANNER_SLIDES = [
     title: "Summer Sale",
     subtitle: "Discover amazing deals on thousands of items",
     cta: "Shop Now",
-    image: "https://picsum.photos/id/26/1200/400",
+    image: "https://cdn-media.sforum.vn/storage/app/media/wp-content/uploads/2024/02/bang-gia-iphone-hien-nay-Thumbnail.jpg",
     color: "from-blue-600 to-purple-600",
   },
   {
@@ -42,15 +42,15 @@ const BANNER_SLIDES = [
     title: "New Tech Arrivals",
     subtitle: "The latest gadgets at unbeatable prices",
     cta: "Explore Tech",
-    image: "https://picsum.photos/id/96/1200/400",
+    image: "https://tintuc.dienthoaigiakho.vn/wp-content/uploads/2022/04/1200x628_Banner-KM-2.png",
     color: "from-green-600 to-teal-600",
   },
   {
     id: 3,
     title: "Fashion Forward",
     subtitle: "Trending styles for every occasion",
-    cta: "Shop Fashion",
-    image: "https://picsum.photos/id/64/1200/400",
+    cta: "Shop Now",
+    image: "https://stcv4.hnammobile.com/uploads/news/large/iphone-14-series-luon-co-san-hang-giao-ngay-khong-can-doi-social.jpg?v=1741847827",
     color: "from-red-600 to-orange-600",
   },
 ];
