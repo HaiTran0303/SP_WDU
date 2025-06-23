@@ -323,11 +323,12 @@ const MainPage = () => {
   };
 
   const toggleWishlist = (product) => {
-  if (!product._id) {
-    console.error("Product ID is undefined:", product);
+  if (!product._id || !product.title) {
+    console.error("MainPage: Invalid product:", product);
     showNotificationWithTimeout("Không thể thêm vào danh sách yêu thích: Sản phẩm không hợp lệ");
     return;
   }
+  console.log("MainPage: Toggling wishlist for product:", product._id);
   const isInWishlist = wishlist.some((item) => item.id === product._id);
   let updatedWishlist;
   if (isInWishlist) {
@@ -343,12 +344,12 @@ const MainPage = () => {
         price: product.price / 100,
         status: product.quantity > 0 ? "available" : "out of stock",
         category: getCategoryName(product.categoryId),
-        description: product.description,
+        description: product.description || "",
       },
     ];
     showNotificationWithTimeout("Đã thêm vào danh sách yêu thích");
   }
-  console.log("Updated wishlist:", updatedWishlist); // Log để debug
+  console.log("MainPage: Setting updated wishlist:", updatedWishlist);
   setWishlist(updatedWishlist);
 };
 
@@ -883,7 +884,7 @@ const addToCart = async (productId) => {
                       <img
                         src={
                           product.url
-                            ? `${product.url}/300`
+                            ? `${product.url}`
                             : "/placeholder.svg"
                         }
                         alt={product.title}
@@ -955,7 +956,7 @@ const addToCart = async (productId) => {
                         <img
                           src={
                             product.url
-                              ? `${product.url}/300`
+                              ? `${product.url}`
                               : "/placeholder.svg"
                           }
                           alt={product.title}

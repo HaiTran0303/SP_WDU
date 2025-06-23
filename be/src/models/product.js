@@ -12,7 +12,7 @@ const productSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      default: "available", // 👈 sửa default từ "active" → "available" cho đúng dữ liệu
+      default: "available", 
       enum: ["available", "inactive", "out_of_stock"],
     },
     quantity: { type: Number, required: true, min: 0 },

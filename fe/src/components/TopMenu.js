@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { ChevronDown, ShoppingCart } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "../context/cartContext";
+import Wishlist from "../pages/wishlist/page";
 
 export default function TopMenu() {
   const [isMenu, setIsMenu] = useState(false);
@@ -121,7 +122,7 @@ export default function TopMenu() {
             </Link>
           </li>
           <li className="flex items-center gap-2 px-3 hover:underline cursor-pointer">
-            <Link to="/wishlist">Danh sách yêu thích</Link>
+            <Link to="/wishlist" element={<Wishlist key={Math.random().toString(36).substring(2)} />}>Danh sách yêu thích</Link>
           </li>
           <li className="px-3 hover:underline cursor-pointer relative">
             <Link to="/cart">

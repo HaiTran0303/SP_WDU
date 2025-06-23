@@ -22,7 +22,7 @@ import SellerProducts from "./pages/sellerProduct/page";
 import DailyDeals from "./pages/dailyDeal/page";
 import HelpContact from "./pages/help/page";
 
-import { CartProvider } from "./context/cartContext"; // ✅ Make sure this is the correct path
+import { CartProvider } from "./context/cartContext"; 
 import { WishlistProvider } from "./context/WishlistContext";
 import Profile from "./pages/profile/profile";
 
@@ -30,8 +30,8 @@ const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
   <React.StrictMode>
     <BrowserRouter>
-      <WishlistProvider> {/* Di chuyển WishlistProvider ra đây */}
-        <CartProvider> {/* Giữ CartProvider bao bọc Routes */}
+      <WishlistProvider> 
+        <CartProvider> 
           <Routes>
             <Route path="/" element={<App />} />
             <Route path="/product/:id" element={<ProductDetail />} />

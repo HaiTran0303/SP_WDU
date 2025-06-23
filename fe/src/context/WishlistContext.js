@@ -1,33 +1,35 @@
-// context/WishlistContext.js
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useMemo } from "react";
 
 const WishlistContext = createContext();
 
 export function WishlistProvider({ children }) {
   const [wishlist, setWishlist] = useState(() => {
+    console.log("WishlistContext: Initializing wishlist from localStorage");
     const savedWishlist = localStorage.getItem("wishlist");
-    console.log("WishlistContext: Raw data from localStorage:", savedWishlist); // Log dữ liệu thô
+    console.log("WishlistContext: Raw data from localStorage:", savedWishlist);
     try {
       const initialWishlist = savedWishlist ? JSON.parse(savedWishlist) : [];
-      console.log("WishlistContext: Parsed initial wishlist:", initialWishlist); // Log sau khi parse
-      if (!Array.isArray(initialWishlist)) {
-        console.warn("WishlistContext: Parsed data is not an array, defaulting to empty array");
-        return [];
-      }
-      return initialWishlist;
+      console.log("WishlistContext: Parsed initial wishlist:", initialWishlist);
+      return Array.isArray(initialWishlist) ? initialWishlist : [];
     } catch (error) {
-      console.error("WishlistContext: Error parsing wishlist from localStorage:", error);
-      return []; // Trả về mảng rỗng nếu parse thất bại
+      console.error("WishlistContext: Error parsing wishlist:", error);
+      return [];
     }
   });
 
   useEffect(() => {
-    console.log("WishlistContext: Wishlist updated, saving to localStorage:", wishlist);
-    localStorage.setItem("wishlist", JSON.stringify(wishlist));
+    console.log("WishlistContext: Saving wishlist to localStorage:", wishlist);
+    try {
+      localStorage.setItem("wishlist", JSON.stringify(wishlist));
+    } catch (error) {
+      console.error("WishlistContext: Error saving wishlist:", error);
+    }
   }, [wishlist]);
 
+  const contextValue = useMemo(() => ({ wishlist, setWishlist }), [wishlist]);
+
   return (
-    <WishlistContext.Provider value={{ wishlist, setWishlist }}>
+    <WishlistContext.Provider value={contextValue}>
       {children}
     </WishlistContext.Provider>
   );
@@ -36,9 +38,7 @@ export function WishlistProvider({ children }) {
 export const useWishlist = () => {
   const context = useContext(WishlistContext);
   if (!context) {
-    console.error("WishlistContext: useWishlist phải được sử dụng trong WishlistProvider");
-  } else {
-    console.log("WishlistContext: Context value provided to consumer:", context.wishlist);
+    throw new Error("useWishlist must be used within a WishlistProvider");
   }
-  return context || { wishlist: [], setWishlist: () => {} };
+  return context;
 };
