@@ -27,7 +27,7 @@ import TopMenu from "../components/TopMenu";
 import MainHeader from "../components/MainHeader";
 import SubMenu from "../components/SubMenu";
 import Footer from "../components/Footer";
-
+const { cartId, setCartId, updateCartCount } = useCart;
 const BANNER_SLIDES = [
   {
     id: 1,
@@ -358,87 +358,56 @@ const MainPage = () => {
     setTimeout(() => setShowNotification(false), 3000);
   };
 
-  const addToCart = async (productId) => {
-    if (!productId) {
-      console.error("Product ID is undefined");
-      showNotificationWithTimeout(
-        "Không thể thêm vào giỏ hàng: Sản phẩm không hợp lệ"
-      );
-      return;
-    }
+const addToCart = async (productId) => {
+  if (!productId) {
+    showNotificationWithTimeout("Không thể thêm vào giỏ hàng: Sản phẩm không hợp lệ");
+    return;
+  }
 
-    if (!currentUser._id || !token) {
-      showNotificationWithTimeout(
-        "Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng"
-      );
+  if (!currentUser._id || !token) {
+    showNotificationWithTimeout("Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng");
+    navigate("/auth");
+    return;
+  }
+
+  try {
+    console.log("Adding to cart - Product ID:", productId, "User ID:", currentUser._id);
+    const response = await fetch("http://localhost:9999/shoppingCart/add", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ productId, quantity: 1 }),
+    });
+
+    if (response.status === 401) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("currentUser");
+      showNotificationWithTimeout("Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.");
       navigate("/auth");
       return;
     }
 
-    try {
-      const productResponse = await fetch(
-        `http://localhost:9999/products/${productId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-      if (!productResponse.ok)
-        throw new Error(
-          `Không thể lấy thông tin sản phẩm: ${await productResponse.text()}`
-        );
-      const product = await productResponse.json();
-      if (product.quantity <= 0) {
-        showNotificationWithTimeout("Sản phẩm này đã hết hàng!");
-        return;
-      }
+    const data = await response.json();
+    console.log("API Response:", data);
 
-      if (!cartId) {
-        // Tạo giỏ hàng mới nếu chưa có
-        const createResponse = await fetch(
-          "http://localhost:9999/shoppingCart",
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              products: [{ idProduct: productId, quantity: 1 }],
-            }),
-          }
-        );
-        if (!createResponse.ok) throw new Error("Không thể tạo giỏ hàng mới");
-        const newCart = await createResponse.json();
-        setCartId(newCart._id); // Cập nhật cartId sau khi tạo
-        showNotificationWithTimeout("Đã thêm vào giỏ hàng");
-      } else {
-        // Cập nhật số lượng nếu đã có giỏ hàng
-        const cartResponse = await fetch(
-          `http://localhost:9999/shoppingCart/${cartId}`,
-          {
-            method: "PATCH",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ productId, quantity: 1 }), // Tăng số lượng lên 1
-          }
-        );
-        if (!cartResponse.ok) throw new Error("Không thể cập nhật giỏ hàng");
-        showNotificationWithTimeout("Đã thêm vào giỏ hàng");
-      }
-
-      updateCartCount();
-    } catch (error) {
-      console.error("Lỗi khi thêm vào giỏ hàng:", error);
-      showNotificationWithTimeout(
-        error.message || "Không thể thêm sản phẩm vào giỏ hàng"
-      );
+    if (!response.ok) {
+      throw new Error(data.message || "Không thể thêm sản phẩm vào giỏ hàng");
     }
-  };
+
+    if (data.success && data.data && data.data._id) {
+      setCartId(data.data._id); // Cập nhật cartId nếu tồn tại
+      showNotificationWithTimeout("Đã thêm vào giỏ hàng");
+      updateCartCount();
+    } else {
+      throw new Error("Dữ liệu trả về từ server không hợp lệ");
+    }
+  } catch (error) {
+    console.error("Lỗi khi thêm vào giỏ hàng:", error);
+    showNotificationWithTimeout(error.message || "Không thể thêm sản phẩm vào giỏ hàng");
+  }
+};
 
   const handleViewProduct = (product) => {
     if (!product._id) {
