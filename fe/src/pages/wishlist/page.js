@@ -10,6 +10,23 @@ import SubMenu from "../../components/SubMenu";
 export default function Wishlist() {
   const { wishlist, setWishlist } = useWishlist();
 
+  // Kiểm tra lại localStorage khi component mount
+  useEffect(() => {
+    console.log("Wishlist component: Checking localStorage on mount");
+    try {
+      const savedWishlist = localStorage.getItem("wishlist");
+      if (savedWishlist) {
+        const parsedWishlist = JSON.parse(savedWishlist);
+        if (Array.isArray(parsedWishlist) && JSON.stringify(parsedWishlist) !== JSON.stringify(wishlist)) {
+          console.log("Wishlist component: Updating wishlist from localStorage:", parsedWishlist);
+          setWishlist(parsedWishlist);
+        }
+      }
+    } catch (error) {
+      console.error("Wishlist component: Error reading localStorage:", error);
+    }
+  }, [setWishlist]);
+
   useEffect(() => {
     console.log("Wishlist component: Rendered with wishlist:", wishlist);
   }, [wishlist]);
@@ -24,7 +41,7 @@ export default function Wishlist() {
   console.log("Wishlist component: Rendering with wishlist:", wishlist);
 
   return (
-    <div id="MainLayout" className="min-w-[1050px] max-w-[1300px] mx-auto">
+    <div id="MainLayout" className="w-full max-w-[1300px] mx-auto">
       <div>
         <TopMenu />
         <MainHeader />
@@ -52,7 +69,7 @@ export default function Wishlist() {
                 >
                   <div className="relative w-48 h-48 bg-gray-100 rounded-lg overflow-hidden">
                     <img
-                      src={`${product.url}/400`}
+                      src={`${product.url}`}
                       alt={product.title || "Product"}
                       className="w-full h-full object-cover"
                       onError={(e) => (e.target.src = "/placeholder.svg")}
@@ -61,7 +78,7 @@ export default function Wishlist() {
                       onClick={() => removeFromWishlist(product.id)}
                       className="absolute top-2 right-2 p-1 rounded-full bg-white/80 hover:bg-white"
                     >
-                      <Heart size={20} color="red" fill="red" />
+                      <Heart handenOnClick={() => removeFromWishlist(product.id)} size={20} color="red" fill="red" />
                     </button>
                   </div>
                   <div className="flex-1">

@@ -122,7 +122,7 @@ export default function TopMenu() {
             </Link>
           </li>
           <li className="flex items-center gap-2 px-3 hover:underline cursor-pointer">
-            <Link to="/wishlist" element={<Wishlist key={Math.random().toString(36).substring(2)} />}>Danh sách yêu thích</Link>
+            <Link to="/wishlist" element={<Wishlist key={Date.now()} />}>Danh sách yêu thích</Link>
           </li>
           <li className="px-3 hover:underline cursor-pointer relative">
             <Link to="/cart">

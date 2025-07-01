@@ -26,6 +26,31 @@ export function WishlistProvider({ children }) {
     }
   }, [wishlist]);
 
+  // Lắng nghe sự kiện storage để đồng bộ wishlist
+  useEffect(() => {
+    const handleStorageChange = (event) => {
+      if (event.key === "wishlist") {
+        console.log("WishlistContext: Detected storage change:", event.newValue);
+        try {
+          const updatedWishlist = event.newValue ? JSON.parse(event.newValue) : [];
+          if (Array.isArray(updatedWishlist)) {
+            console.log("WishlistContext: Updating wishlist from storage:", updatedWishlist);
+            setWishlist(updatedWishlist);
+          } else {
+            console.error("WishlistContext: Invalid wishlist data in storage");
+            setWishlist([]);
+          }
+        } catch (error) {
+          console.error("WishlistContext: Error parsing storage wishlist:", error);
+          setWishlist([]);
+        }
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, [setWishlist]);
+
   const contextValue = useMemo(() => ({ wishlist, setWishlist }), [wishlist]);
 
   return (
